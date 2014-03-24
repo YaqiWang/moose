@@ -105,6 +105,30 @@ protected:
   virtual VariableValue & coupledValueOlder(const std::string & var_name, unsigned int comp = 0);
 
   /**
+   * Returns raw solution vector of a coupled variable
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a VariableValue for the coupled variable
+   */
+  virtual VariableValue & coupledSln(const std::string & var_name, unsigned int comp = 0);
+
+  /**
+   * Returns raw solution vector from previous time step  of a coupled variable
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a VariableValue containing the old value of the coupled variable
+   */
+  virtual VariableValue & coupledSlnOld(const std::string & var_name, unsigned int comp = 0);
+
+  /**
+   * Returns raw solution vector from two time steps previous of a coupled variable
+   * @param var_name Name of coupled variable
+   * @param comp Component number for vector of coupled variables
+   * @return Reference to a VariableValue containing the older value of the coupled variable
+   */
+  virtual VariableValue & coupledSlnOlder(const std::string & var_name, unsigned int comp = 0);
+
+  /**
    * Returns gradient of a coupled variable
    * @param var_name Name of coupled variable
    * @param comp Component number for vector of coupled variables
@@ -210,7 +234,7 @@ protected:
    * @param comp Component number of multiple coupled variables
    * @return Pointer to the desired variable
    */
-  MooseVariable *getVar(const std::string & var_name, unsigned int comp);
+  MooseVariable *getVar(const std::string & var_name, unsigned int comp = 0);
 
   /**
    * Checks to make sure that the current Executioner has set "_it_transient" when old/older values
