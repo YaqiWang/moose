@@ -21,5 +21,10 @@
     type = 'Exodiff'
     input = 'l2_element_aux_var_test.i'
     exodiff = 'l2elemaux.e'
+
+  [./direct_test]
+    type = 'Exodiff'
+    input = 'element_direct_aux_var_test.i'
+    exodiff = 'out_direct.e'
   [../]
 []
