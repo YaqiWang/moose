@@ -51,6 +51,7 @@
 #include "FDAdvection.h"
 
 #include "CoupledAux.h"
+#include "DirectCoupledAux.h"
 #include "CoupledGradAux.h"
 #include "PolyConstantAux.h"
 #include "MMSConstantAux.h"
@@ -245,6 +246,7 @@ MooseTestApp::registerObjects(Factory & factory)
 
   // Aux kernels
   registerAux(CoupledAux);
+  registerAux(DirectCoupledAux);
   registerAux(CoupledGradAux);
   registerAux(PolyConstantAux);
   registerAux(MMSConstantAux);
