@@ -101,6 +101,7 @@
 #include "VarCouplingMaterialEigen.h"
 #include "BadStatefulMaterial.h"
 #include "OutputTestMaterial.h"
+#include "AuxConstantMaterial.h"
 
 #include "DGMatDiffusion.h"
 #include "DGMDDBC.h"
@@ -171,6 +172,7 @@
 
 #include "ConvDiffMetaAction.h"
 #include "AddLotsOfAuxVariablesAction.h"
+#include "AddAuxMaterialAction.h"
 
 // From MOOSE
 #include "AddVariableAction.h"
@@ -322,6 +324,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerMaterial(VarCouplingMaterialEigen);
   registerMaterial(BadStatefulMaterial);
   registerMaterial(OutputTestMaterial);
+  registerMaterial(AuxConstantMaterial);
 
   registerScalarKernel(ExplicitODE);
   registerScalarKernel(ImplicitODEx);
@@ -390,7 +393,14 @@ MooseTestApp::associateSyntax(Syntax & syntax, ActionFactory & action_factory)
   // and add more
   registerAction(ConvDiffMetaAction, "meta_action");
   registerAction(AddLotsOfAuxVariablesAction, "meta_action");
+
+  registerMooseObjectTask("add_aux_material", Material, false);
+  addTaskDependency("add_aux_material", "add_material");
+  addTaskDependency("add_postprocessor", "add_aux_material");
+  registerAction(AddAuxMaterialAction, "add_aux_material");
+
   syntax.registerActionSyntax("ConvDiffMetaAction", "ConvectionDiffusion");
   syntax.registerActionSyntax("AddAuxVariableAction", "MoreAuxVariables/*", "add_aux_variable");
   syntax.registerActionSyntax("AddLotsOfAuxVariablesAction", "LotsOfAuxVariables/*", "add_variable");
+  syntax.registerActionSyntax("AddAuxMaterialAction", "AuxMaterials/*", "add_aux_material");
 }

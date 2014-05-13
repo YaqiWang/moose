@@ -12,31 +12,23 @@
 /*            See COPYRIGHT for full restrictions               */
 /****************************************************************/
 
-#ifndef MOOSEVARIABLEDEPENDENCYINTERFACE_H
-#define MOOSEVARIABLEDEPENDENCYINTERFACE_H
+#ifndef ADDAUXMATERIALACTION_H
+#define ADDAUXMATERIALACTION_H
 
-#include <set>
+#include "MooseObjectAction.h"
 
-class MooseVariableDependencyInterface
+class AddAuxMaterialAction;
+
+template<>
+InputParameters validParams<AddAuxMaterialAction>();
+
+
+class AddAuxMaterialAction : public MooseObjectAction
 {
 public:
-  MooseVariableDependencyInterface() {}
+  AddAuxMaterialAction(const std::string & name, InputParameters params);
 
-  /**
-   * Retrieve the set of MooseVariables that _this_ object depends on.
-   * @return The MooseVariables that MUST be reinited before evaluating this object
-   */
-  const std::set<MooseVariable *> & getMooseVariableDependencies() { return _moose_variable_dependencies; }
-
-protected:
-
-  /**
-   * Call this function to add the passed in MooseVariable as a variable that _this_ object depends on.
-   */
-  void addMooseVariableDependency(MooseVariable * var) { _moose_variable_dependencies.insert(var); }
-
-private:
-  std::set<MooseVariable *> _moose_variable_dependencies;
+  virtual void act();
 };
 
-#endif // MOOSEVARIABLEDEPENDENCYINTERFACE_H
+#endif // ADDAUXMATERIALACTION_H
