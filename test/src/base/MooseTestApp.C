@@ -104,6 +104,7 @@
 #include "BadStatefulMaterial.h"
 #include "OutputTestMaterial.h"
 #include "SumMaterial.h"
+#include "VolumeMaterial.h"
 
 #include "DGMatDiffusion.h"
 #include "DGMDDBC.h"
@@ -335,6 +336,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerMaterial(BadStatefulMaterial);
   registerMaterial(OutputTestMaterial);
   registerMaterial(SumMaterial);
+  registerMaterial(VolumeMaterial);
 
   registerScalarKernel(ExplicitODE);
   registerScalarKernel(ImplicitODEx);
