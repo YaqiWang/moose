@@ -149,6 +149,26 @@ Console::Console(const std::string & name, InputParameters parameters) :
         Moose::_color_console = false;
     }
   }
+  // Framework information
+  std::stringstream oss;
+  if (_app.getSystemInfo() != NULL)
+    oss << _app.getSystemInfo()->getInfo();
+
+  if (_problem_ptr->legacyUoAuxComputation() || _problem_ptr->legacyUoInitialization())
+  {
+    oss << "LEGACY MODES ENABLED:\n";
+    if (_problem_ptr->legacyUoAuxComputation())
+      oss << "  Computing EXEC_RESIDUAL AuxKernel types when any UserObject type is executed.\n";
+    if (_problem_ptr->legacyUoInitialization())
+      oss << "  Computing all UserObjects during initial setup.\n";
+  }
+
+  oss << std::left << '\n'
+      << "Parallelism:\n"
+      << std::setw(_field_width) << "  Num Processors: " << static_cast<std::size_t>(n_processors()) << '\n'
+      << std::setw(_field_width) << "  Num Threads: " << static_cast<std::size_t>(n_threads()) << '\n'
+      << '\n';
+  write(oss.str());
 }
 
 Console::~Console()
@@ -546,25 +566,6 @@ Console::outputSystemInformation()
     return;
 
   std::stringstream oss;
-
-  // Framework information
-  if (_app.getSystemInfo() != NULL)
-    oss << _app.getSystemInfo()->getInfo();
-
-  if (_problem_ptr->legacyUoAuxComputation() || _problem_ptr->legacyUoInitialization())
-  {
-    oss << "LEGACY MODES ENABLED:\n";
-    if (_problem_ptr->legacyUoAuxComputation())
-      oss << "  Computing EXEC_LINEAR AuxKernel types when any UserObject type is executed.\n";
-    if (_problem_ptr->legacyUoInitialization())
-      oss << "  Computing all UserObjects during initial setup.\n";
-  }
-
-  oss << std::left << '\n'
-      << "Parallelism:\n"
-      << std::setw(_field_width) << "  Num Processors: " << static_cast<std::size_t>(n_processors()) << '\n'
-      << std::setw(_field_width) << "  Num Threads: " << static_cast<std::size_t>(n_threads()) << '\n'
-      << '\n';
 
   MooseMesh & moose_mesh = _problem_ptr->mesh();
   MeshBase & mesh = moose_mesh.getMesh();
