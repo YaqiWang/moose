@@ -24,6 +24,7 @@ InputParameters validParams<FaceFaceConstraint>()
   params.addRequiredParam<std::string>("interface", "The name of the interface.");
   params.addRequiredParam<VariableName>("master_variable", "Variable on master surface");
   params.addParam<VariableName>("slave_variable", "Variable on master surface");
+  params.addParam<bool>("add_diagonal", false, "Add the mortar diagonal Jacobian with a mass matrix");
   return params;
 }
 
@@ -51,7 +52,8 @@ FaceFaceConstraint::FaceFaceConstraint(const std::string & name, InputParameters
     _phi_master(_master_var.phi()),
 
     _test_slave(_slave_var.phi()),
-    _phi_slave(_slave_var.phi())
+    _phi_slave(_slave_var.phi()),
+    _add_diagonal(getParam<bool>("add_diagonal"))
 {
 }
 
@@ -181,6 +183,15 @@ FaceFaceConstraint::computeJacobian(SparseMatrix<Number> & jacobian)
       for (_i = 0; _i < _test.size(); _i++)
         for (_j = 0; _j < _phi.size(); _j++)
           Kee(_i, _j) += _JxW_lm[_qp] * _coord[_qp] * computeQpJacobian();
+
+    if (_add_diagonal)
+    {
+      for (_qp = 0; _qp < _qrule->n_points(); _qp++)
+        for (_i = 0; _i < _test.size(); _i++)
+          for (_j = 0; _j < _phi.size(); _j++)
+            Kee(_i, _j) += _JxW_lm[_qp] * _coord[_qp] * _test[_i][_qp] * _phi[_j][_qp];
+    }
+
     _assembly.addJacobian(jacobian);
   }
 
@@ -231,7 +242,7 @@ FaceFaceConstraint::computeJacobian(SparseMatrix<Number> & jacobian)
 Real
 FaceFaceConstraint::computeQpJacobian()
 {
-  return 0.;
+  return 0;
 }
 
 Real

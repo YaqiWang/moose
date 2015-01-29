@@ -146,6 +146,9 @@ protected:
    * Values of shape function on the slave side
    */
   const VariablePhiValue & _phi_slave;
+
+  ///weather or not add the mass matrix on mortar diagonal Jacobian
+  bool _add_diagonal;
 };
 
 

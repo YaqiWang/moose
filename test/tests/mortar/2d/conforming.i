@@ -22,16 +22,15 @@
 []
 
 [Variables]
-  [./u]
-    order = FIRST
-    family = LAGRANGE
-    block = '1 2'
-  [../]
-
   [./lm]
     order = FIRST
     family = LAGRANGE
     block = middle
+  [../]
+  [./u]
+    order = FIRST
+    family = LAGRANGE
+    block = '1 2'
   [../]
 []
 
@@ -53,6 +52,7 @@
     variable = lm
     interface = middle
     master_variable = u
+    add_diagonal = true
   [../]
 []
 
@@ -62,12 +62,6 @@
     variable = u
     boundary = '1 2 3 4'
     function = exact_sln
-  [../]
-
-  [./mortar]
-    type = DiffusionFluxBC
-    variable = u
-    boundary = '100 101'
   [../]
 []
 
@@ -80,18 +74,10 @@
   [../]
 []
 
-[Preconditioning]
-  [./fmp]
-    type = SMP
-    full = true
-    solve_type = 'NEWTON'
-  [../]
-[]
-
 [Executioner]
   type = Steady
-  nl_rel_tol = 1e-11
-  l_tol = 1e-10
+  nl_rel_tol = 1e-13
+  l_tol = 1e-6
 []
 
 [Outputs]
