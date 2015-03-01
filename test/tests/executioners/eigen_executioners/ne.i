@@ -12,6 +12,10 @@
  uniform_refine = 0
 []
 
+[Debug]
+  show_moose_prints = true
+[]
+
 # the minimum eigenvalue of this problem is 2*(PI/a)^2;
 # Its inverse is 0.5*(a/PI)^2 = 5.0660591821169. Here a is equal to 10.
 
@@ -48,6 +52,15 @@
     boundary = '0 1 2 3'
     value = 0
   [../]
+[]
+
+[Materials]
+ [./dummy]
+  type = GenericConstantMaterial
+  block = 0
+  prop_names = 'dummy'
+  prop_values = '0'
+ [../]
 []
 
 [Executioner]
