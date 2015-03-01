@@ -30,6 +30,7 @@ InputParameters validParams<SetupDebugAction>()
   params.addParam<bool>("show_actions", false, "Print out the actions being executed");
   params.addParam<bool>("show_parser", false, "Shows parser block extraction and debugging information");
   params.addParam<bool>("show_material_props", false, "Print out the material properties supplied for each block, face, neighbor, and/or sideset");
+  params.addParam<bool>("show_moose_prints", false, "Print prints");
   return params;
 }
 
@@ -65,6 +66,8 @@ SetupDebugAction::act()
     MooseObjectAction * action = createOutputAction("TopResidualDebugOutput", "_moose_top_residual_debug_output");
     action->getObjectParams().set<unsigned int>("num_residuals") = _pars.get<unsigned int>("show_top_residuals");
   }
+
+  _problem->showFootPrints() = getParam<bool>("show_moose_prints");
 }
 
 

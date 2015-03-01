@@ -59,6 +59,21 @@ public:
       return _obj_linear;
     }
   }
+  const std::vector<T> &
+  operator()(ExecFlagType type) const
+  {
+    switch (type)
+    {
+    case EXEC_INITIAL: return _obj_initial;
+    case EXEC_TIMESTEP_END: return _obj_timestep_end;
+    case EXEC_TIMESTEP_BEGIN: return _obj_timestep_begin;
+    case EXEC_NONLINEAR: return _obj_nonlinear;
+    case EXEC_CUSTOM: return _obj_custom;
+    case EXEC_LINEAR:
+    default:
+      return _obj_linear;
+    }
+  }
 
 protected:
   /// executed once at the beginning of the simulation

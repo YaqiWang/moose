@@ -238,6 +238,21 @@ namespace Moose {
     }
     return "";
   }
+
+  template<>
+  std::string stringify(const ExecFlagType & t)
+  {
+    switch (t)
+    {
+    case EXEC_INITIAL:        return "INITIAL";
+    case EXEC_LINEAR:         return "LINEAR";
+    case EXEC_NONLINEAR:      return "NONLINEAR";
+    case EXEC_TIMESTEP_BEGIN: return "TIMESTEP_BEGIN";
+    case EXEC_TIMESTEP_END:   return "TIMESTEP_END";
+    case EXEC_CUSTOM:         return "CUSTOM";
+    }
+    return "";
+  }
 }
 
 Point toPoint(const std::vector<Real> & pos)

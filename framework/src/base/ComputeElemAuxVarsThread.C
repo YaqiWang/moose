@@ -68,6 +68,11 @@ ComputeElemAuxVarsThread::subdomainChanged()
 
   _fe_problem.setActiveElementalMooseVariables(needed_moose_vars, _tid);
   _fe_problem.prepareMaterials(_subdomain, _tid);
+
+  if (_fe_problem.showFootPrints())
+    for (std::vector<AuxKernel*>::const_iterator block_element_aux_it = _auxs[_tid].activeBlockElementKernels(_subdomain).begin();
+        block_element_aux_it != _auxs[_tid].activeBlockElementKernels(_subdomain).end(); ++block_element_aux_it)
+      Moose::out << (*block_element_aux_it)->name() << std::endl;
 }
 
 

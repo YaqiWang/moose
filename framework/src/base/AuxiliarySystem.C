@@ -225,9 +225,49 @@ AuxiliarySystem::serializeSolution()
   }
 }
 
+#include "Conversion.h"
+void
+AuxiliarySystem::printExecOrders(std::ostream & os) const
+{
+  os << " [DBG] AuxKernel ordering " << std::endl;
+  const std::set<SubdomainID> blocks = _mesh.meshSubdomains();
+  for (unsigned int i=0; i<Moose::exec_types.size(); i++)
+  {
+    ExecFlagType type = Moose::exec_types[i];
+    for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+    {
+      os << "  On " << Moose::stringify(type) << " thread " << tid << std::endl;
+      os << "  SCALAR" << std::endl;
+      const std::vector<AuxScalarKernel *> & scalars = _auxs(type)[tid].scalars();
+      for (unsigned int i=0; i<scalars.size(); i++)
+        os << "    " <<  scalars[i]->name();
+      os << "  NODAL" << std::endl;
+      for (std::set<SubdomainID>::const_iterator it = blocks.begin(); it != blocks.end(); it++)
+      {
+        os << "      Block " << *it << std::endl;
+        for (std::vector<AuxKernel*>::const_iterator block_nodal_aux_it = _auxs(type)[tid].activeBlockNodalKernels(*it).begin();
+             block_nodal_aux_it != _auxs(type)[tid].activeBlockNodalKernels(*it).end(); ++block_nodal_aux_it)
+          os << "     " << (*block_nodal_aux_it)->name() << std::endl;
+      }
+      os << "  ELEMENTAL" << std::endl;
+      for (std::set<SubdomainID>::const_iterator it = blocks.begin(); it != blocks.end(); it++)
+      {
+        os << "      Block " << *it << std::endl;      
+        for (std::vector<AuxKernel*>::const_iterator block_element_aux_it = _auxs(type)[tid].activeBlockElementKernels(*it).begin();
+             block_element_aux_it != _auxs(type)[tid].activeBlockElementKernels(*it).end(); ++block_element_aux_it)
+          os << "     " << (*block_element_aux_it)->name() << std::endl;
+        os << std::endl;
+      }
+    }
+  }
+}
+
 void
 AuxiliarySystem::compute(ExecFlagType type/* = EXEC_LINEAR*/)
 {
+  if (_mproblem.showFootPrints())
+    Moose::out << " [DBG] AuxKernels on " << Moose::stringify(type) << std::endl;
+
   if (_vars[0].scalars().size() > 0)
     computeScalarVars(type);
 
@@ -288,6 +328,8 @@ AuxiliarySystem::computeScalarVars(ExecFlagType type)
       for (std::vector<AuxScalarKernel *>::const_iterator it = scalars.begin(); it != scalars.end(); ++it)
       {
         AuxScalarKernel * kernel = *it;
+        if (_mproblem.showFootPrints())
+          Moose::out << kernel->name() << std::endl;
         kernel->compute();
       }
 

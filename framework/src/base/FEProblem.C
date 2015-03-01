@@ -1722,6 +1722,9 @@ FEProblem::reinitMaterials(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful
   if (_materials[tid].hasMaterials(blk_id))
   {
     const Elem * & elem = _assembly[tid]->elem();
+    if (showFootPrints())
+      Moose::out << " [DBG] Materials on element " << elem->id() << std::endl;
+
     unsigned int n_points = _assembly[tid]->qRule()->n_points();
     if (_material_data[tid]->nQPoints() != n_points)
       _material_data[tid]->size(n_points);
@@ -1735,12 +1738,40 @@ FEProblem::reinitMaterials(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful
 }
 
 void
+FEProblem::printMaterialOrders(std::ostream & os)
+{
+  os << " [DBG] Material ordering " << std::endl;
+  const std::set<SubdomainID> blocks = _mesh.meshSubdomains();
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    for (std::set<SubdomainID>::const_iterator it = blocks.begin(); it != blocks.end(); it++)
+    {
+      os << "   Thread " << tid << " block " << *it << std::endl;
+      os << "    Element Interior" << std::endl;
+      for (unsigned int i=0; i<_materials[tid].getMaterials(*it).size(); i++)
+        os << "     " << _materials[tid].getMaterials(*it)[i]->name() << std::endl;
+      os << "    Element Side" << std::endl;
+      for (unsigned int i=0; i<_materials[tid].getFaceMaterials(*it).size(); i++)
+        os << "     " << _materials[tid].getFaceMaterials(*it)[i]->name() << std::endl;
+      os << "    Neighbor Element Side" << std::endl;
+      for (unsigned int i=0; i<_materials[tid].getNeighborMaterials(*it).size(); i++)
+        os << "     " << _materials[tid].getNeighborMaterials(*it)[i]->name() << std::endl;
+      os << std::endl;
+    }
+  }
+}
+
+void
 FEProblem::reinitMaterialsFace(SubdomainID blk_id, THREAD_ID tid, bool swap_stateful)
 {
   if (_materials[tid].hasFaceMaterials(blk_id))
   {
     const Elem * & elem = _assembly[tid]->elem();
     unsigned int side = _assembly[tid]->side();
+    if (showFootPrints())
+      Moose::out << " [DBG] Materials on element " << elem->id() << " side " << side << std::endl;
+    libMesh::print_trace();
+
     unsigned int n_points = _assembly[tid]->qRuleFace()->n_points();
 
     if (_bnd_material_data[tid]->nQPoints() != n_points)
@@ -1761,6 +1792,9 @@ FEProblem::reinitMaterialsNeighbor(SubdomainID blk_id, THREAD_ID tid, bool swap_
     // NOTE: this will not work with h-adaptivity
     const Elem * & neighbor = _assembly[tid]->neighbor();
     unsigned int neighbor_side = neighbor->which_neighbor_am_i(_assembly[tid]->elem());
+    if (showFootPrints())
+      Moose::out << " [DBG] Materials on neighboring element " << neighbor->id() << " side " << neighbor_side << std::endl;
+
     unsigned int n_points = _assembly[tid]->qRuleFace()->n_points();
     if (_neighbor_material_data[tid]->nQPoints() != n_points)
       _neighbor_material_data[tid]->size(n_points);
@@ -2549,9 +2583,17 @@ FEProblem::computeUserObjectsInternal(ExecFlagType type, UserObjectWarehouse::GR
 }
 
 void
+FEProblem::printUserObjectOrders(std::ostream & /*os*/) const
+{
+}
+
+void
 FEProblem::computeUserObjects(ExecFlagType type/* = EXEC_TIMESTEP_END*/, UserObjectWarehouse::GROUP group)
 {
   Moose::perf_log.push("compute_user_objects()","Solve");
+
+  if (showFootPrints())
+    Moose::out << " [DBG] UserObject " << Moose::stringify(type) << " " << group << std::endl;
 
   switch (type)
   {
@@ -3250,7 +3292,11 @@ FEProblem::computeResidualL2Norm()
 void
 FEProblem::computeResidual(NonlinearImplicitSystem &/*sys*/, const NumericVector<Number> & soln, NumericVector<Number> & residual)
 {
+  if (showFootPrints())
+    Moose::out << " [DBG] Start residual evaluation #" << _nl.nResidualEvaluations() << std::endl;
   computeResidualType(soln, residual, _kernel_type);
+  if (showFootPrints())
+    Moose::out << " [DBG] End residual evaluation #" << _nl.nResidualEvaluations()-1 << std::endl;
 }
 
 void
@@ -3318,6 +3364,8 @@ FEProblem::computeJacobian(NonlinearImplicitSystem & sys, const NumericVector<Nu
 {
   if (!_has_jacobian || !_const_jacobian)
   {
+    if (showFootPrints())
+      Moose::out << " [DBG] Start Jacobian evaluation #" << _nl.nResidualEvaluations() << std::endl;
     _nl.setSolution(soln);
 
     _nl.zeroVariablesForJacobian();
@@ -3360,6 +3408,8 @@ FEProblem::computeJacobian(NonlinearImplicitSystem & sys, const NumericVector<Nu
     _nl.computeJacobian(jacobian);
 
     _has_jacobian = true;
+    if (showFootPrints())
+      Moose::out << " [DBG] End Jacobian evaluation" << std::endl;
   }
 
   if (_solver_params._type == Moose::ST_JFNK || _solver_params._type == Moose::ST_PJFNK)
@@ -3723,6 +3773,13 @@ FEProblem::checkProblemIntegrity()
 
   // Verify that we don't have any Element type/Coordinate Type conflicts
   checkCoordinateSystems();
+
+  if (showFootPrints())
+  {
+    _aux.printExecOrders(Moose::out);
+    printUserObjectOrders(Moose::out);
+    printMaterialOrders(Moose::out);
+  }
 }
 
 void

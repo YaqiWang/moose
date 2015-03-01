@@ -65,9 +65,9 @@ public:
    * vectors are asked to recompute their values.
    */
   std::vector<Material *> & getMaterials();
-  std::vector<Material *> & getMaterials(SubdomainID block_id);
-  std::vector<Material *> & getFaceMaterials(SubdomainID block_id);
-  std::vector<Material *> & getNeighborMaterials(SubdomainID block_id);
+  std::vector<Material *> & getMaterials (SubdomainID block_id);
+  std::vector<Material *> & getFaceMaterials (SubdomainID block_id);
+  std::vector<Material *> & getNeighborMaterials (SubdomainID block_id);
   std::vector<Material *> & getBoundaryMaterials(BoundaryID boundary_id);
   ///@}
 

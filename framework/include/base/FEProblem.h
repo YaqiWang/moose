@@ -862,8 +862,15 @@ public:
 
   void setErrorOnJacobianNonzeroReallocation(bool state) { _error_on_jacobian_nonzero_reallocation = state; }
 
+  void printUserObjectOrders(std::ostream & os) const;
+  void printMaterialOrders(std::ostream & os);
+  bool showFootPrints() const { return _show_prints; }
+  bool & showFootPrints() { return _show_prints; }
 
 protected:
+  ///
+  bool _show_prints;
+
   /// Data names that will only be read from the restart file during RECOVERY
   std::set<std::string> _recoverable_data;
 

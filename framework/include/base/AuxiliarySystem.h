@@ -125,6 +125,8 @@ public:
    */
   bool needMaterialOnSide(BoundaryID bnd_id);
 
+  void printExecOrders(std::ostream & os) const;
+
 protected:
   void computeScalarVars(ExecFlagType type);
   void computeNodalVars(ExecFlagType type);

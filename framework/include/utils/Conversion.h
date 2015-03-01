@@ -74,6 +74,9 @@ namespace Moose {
   template<>
   std::string stringify(const SolveType & t);
 
+  template<>
+  std::string stringify(const ExecFlagType & t);
+
 }
 
 /**

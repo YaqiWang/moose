@@ -46,8 +46,8 @@ public:
   const std::vector<AuxKernel *> & allElementKernels() const { return _all_element_aux_kernels; }
   const std::vector<AuxKernel *> & allNodalKernels() const { return _all_nodal_aux_kernels; }
 
-  const std::vector<AuxKernel *> & activeBlockNodalKernels(SubdomainID block) { return _active_block_nodal_aux_kernels[block]; }
-  const std::vector<AuxKernel *> & activeBlockElementKernels(SubdomainID block) { return _active_block_element_aux_kernels[block]; }
+  const std::vector<AuxKernel *> & activeBlockNodalKernels(SubdomainID block) const { return _active_block_nodal_aux_kernels.find(block)->second; }
+  const std::vector<AuxKernel *> & activeBlockElementKernels(SubdomainID block) const { return _active_block_element_aux_kernels.find(block)->second; }
 
   const std::vector<AuxKernel *> & activeBCs(BoundaryID boundary_id) { return _active_nodal_bcs[boundary_id]; }
   const std::vector<AuxKernel *> & allElementalBCs() { return _all_elem_bcs; }
@@ -57,7 +57,7 @@ public:
    * Get list of scalar kernels
    * @return The list of scalar active kernels
    */
-  const std::vector<AuxScalarKernel *> & scalars() { return _scalar_kernels; }
+  const std::vector<AuxScalarKernel *> & scalars() const { return _scalar_kernels; }
 
   /**
    * Adds an auxiliary kernel
