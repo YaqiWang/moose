@@ -77,13 +77,15 @@ public:
    * @param echo True to make screen printouts.
    * @param output_convergence True to call MOOSE output system to output iteration history.
    * @param time_base Used to set time for MOOSE output system.
+   * @param exec_timestep True to execute auxkernels and UOs on timestep_begin and timestep_end before and after power iteration.
+   * @param solution_diff Address of a real number storing the solution difference valid during power iteration. If it is null, tol_x will be checked.
    * @param k Eigenvalue, input as the initial guess.
    * @param initial_res The initial residual.
    */
   virtual void inversePowerIteration(unsigned int min_iter, unsigned int max_iter, Real pfactor,
                                      bool cheb_on, Real tol_eig, Real tol_x, bool echo,
-                                     bool output_convergence, Real time_base,
-                                     Real & k, Real & initial_res);
+                                     bool output_convergence, Real time_base, bool exec_timestep,
+                                     Real * solution_diff, Real & k, Real & initial_res);
 
   /**
    * Override this for actions that should take place before linear solve of each inverse power iteration
@@ -134,12 +136,7 @@ protected:
 
   // postprocessor for eigenvalue
   const Real & _source_integral;
-  const Real & _source_integral_old;
   ExecFlagType _bx_execflag;
-
-  // postprocessor for evaluating |x-xprevious|
-  Real * _solution_diff;
-  ExecFlagType _xdiff_execflag;
 
   // postprocessor for normalization
   Real & _normalization;
@@ -166,7 +163,7 @@ protected:
     unsigned int icho;            // improved ratio estimation
   };
   Chebyshev_Parameters  chebyshev_parameters;
-  void chebyshev(unsigned int iter);
+  void chebyshev(unsigned int iter, Real * solution_diff);
 };
 
 #endif //EIGENEXECUTIONERBASE_H

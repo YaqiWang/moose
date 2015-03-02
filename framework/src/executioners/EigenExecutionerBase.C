@@ -22,14 +22,16 @@ InputParameters validParams<EigenExecutionerBase>()
 {
   InputParameters params = validParams<Executioner>();
   params.addRequiredParam<PostprocessorName>("bx_norm", "To evaluate |Bx| for the eigenvalue");
-  params.addParam<PostprocessorName>("xdiff", "To evaluate |x-x_previous| for power iterations");
   params.addParam<PostprocessorName>("normalization", "To evaluate |x| for normalization");
   params.addParam<Real>("normal_factor", "Normalize x to make |x| equal to this factor");
   params.addParam<bool>("auto_initialization", true, "True to ask the solver to set initial");
   params.addParam<Real>("time", 0.0, "System time");
-  params.addParam<bool>("output_on_final", false, "True to disable all the intemediate exodus outputs");
+  params.addParam<bool>("output_before_normalization", true, "True to output a step before normalization");
 
   params.addPrivateParam<bool>("_eigen", true);
+
+  params.addParamNamesToGroup("normalization normal_factor output_before_normalization", "Normalization");
+  params.addParamNamesToGroup("auto_initialization time", "Advanced");  
   return params;
 }
 
@@ -39,8 +41,6 @@ EigenExecutionerBase::EigenExecutionerBase(const std::string & name, InputParame
      _eigen_sys(static_cast<EigenSystem &>(_problem.getNonlinearSystem())),
      _eigenvalue(_problem.parameters().set<Real>("eigenvalue")), // used for storing the eigenvalue
      _source_integral(getPostprocessorValue("bx_norm")),
-     _source_integral_old(getPostprocessorValueOld("bx_norm")),
-     _solution_diff(isParamValid("xdiff") ? &getPostprocessorValue("xdiff") : NULL),
      _normalization(isParamValid("normalization") ? getPostprocessorValue("normalization")
                     : getPostprocessorValue("bx_norm")) // use |Bx| for normalization by default
 {
@@ -101,10 +101,6 @@ EigenExecutionerBase::init()
 
   // check when the postprocessors are evaluated
   _bx_execflag = _problem.getUserObject<UserObject>(getParam<PostprocessorName>("bx_norm")).execBitFlags();
-  if (_solution_diff)
-    _xdiff_execflag = _problem.getUserObject<UserObject>(getParam<PostprocessorName>("xdiff")).execBitFlags();
-  else
-    _xdiff_execflag = EXEC_TIMESTEP_END;
   if (isParamValid("normalization"))
     _norm_execflag = _problem.getUserObject<UserObject>(getParam<PostprocessorName>("normalization")).execBitFlags();
   else
@@ -197,6 +193,8 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
                                             bool echo,
                                             bool output_convergence,
                                             Real time_base,
+                                            bool exec_timestep,
+                                            Real * solution_diff,
                                             Real & k,
                                             Real & initial_res)
 {
@@ -207,8 +205,8 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
 
   if ((_bx_execflag & (EXEC_TIMESTEP_END | EXEC_LINEAR)) == EXEC_NONE)
     mooseError("rhs postprocessor for the power method has to be executed on timestep or residual");
-  if ((_xdiff_execflag & (EXEC_TIMESTEP_END | EXEC_LINEAR)) == EXEC_NONE)
-    mooseError("xdiff postprocessor for the power method has to be executed on timestep or residual");
+  if ((!exec_timestep) && ((_bx_execflag & EXEC_LINEAR) == EXEC_NONE))
+    mooseError("eigenvalue has to be updated on linear because timestep_end is not evaluated during power iteration");
 
   // not perform any iteration when max_iter==0
   if (max_iter==0) return;
@@ -237,6 +235,7 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
 
   // some iteration variables
   Real k_old = 0.0;
+  Real source_integral_old = 0.0;
 
   std::vector<Real> keff_history;
   std::vector<Real> diff_history;
@@ -254,29 +253,36 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
     // important: solutions of aux system is also copied
     _problem.advanceState();
     k_old = k;
+    source_integral_old = _source_integral;
 
-    // FIXME: timestep needs to be changed to step
-    _problem.onTimestepBegin(); // this will copy postprocessors to old
-    _problem.timestepSetup();
-    _problem.computeUserObjects(EXEC_TIMESTEP_BEGIN, UserObjectWarehouse::PRE_AUX);
-    _problem.computeAuxiliaryKernels(EXEC_TIMESTEP_BEGIN);
-    _problem.computeUserObjects(EXEC_TIMESTEP_BEGIN, UserObjectWarehouse::POST_AUX);
+    if (exec_timestep)
+    {
+      // FIXME: timestep needs to be changed to step
+      _problem.onTimestepBegin(); // this will copy postprocessors to old
+      _problem.timestepSetup();
+      _problem.computeUserObjects(EXEC_TIMESTEP_BEGIN, UserObjectWarehouse::PRE_AUX);
+      _problem.computeAuxiliaryKernels(EXEC_TIMESTEP_BEGIN);
+      _problem.computeUserObjects(EXEC_TIMESTEP_BEGIN, UserObjectWarehouse::POST_AUX);
+    }
 
     preIteration();
     _problem.solve();
     postIteration();
 
-    // FIXME: timestep needs to be changed to step
-    _problem.computeUserObjects(EXEC_TIMESTEP_END, UserObjectWarehouse::PRE_AUX);
-    _problem.computeAuxiliaryKernels(EXEC_TIMESTEP_END);
-    _problem.computeUserObjects(EXEC_TIMESTEP_END, UserObjectWarehouse::POST_AUX);
-    _problem.onTimestepEnd();
+    if (exec_timestep)
+    {
+      // FIXME: timestep needs to be changed to step
+      _problem.computeUserObjects(EXEC_TIMESTEP_END, UserObjectWarehouse::PRE_AUX);
+      _problem.computeAuxiliaryKernels(EXEC_TIMESTEP_END);
+      _problem.computeUserObjects(EXEC_TIMESTEP_END, UserObjectWarehouse::POST_AUX);
+      _problem.onTimestepEnd();
+    }
 
     // save the initial residual
     if (iter==0) initial_res = _eigen_sys._initial_residual;
 
     // update eigenvalue
-    k = k_old * _source_integral / _source_integral_old;
+    k = k_old * _source_integral / source_integral_old;
 
     // synchronize _eigenvalue with |Bx| for output purpose
     // Note: if using MOOSE output system, eigenvalue output will be one iteration behind.
@@ -287,11 +293,11 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
     {
       // output on screen the convergence history only when we want to and MOOSE output system is not used
       keff_history.push_back(k);
-      if (_solution_diff) diff_history.push_back(*_solution_diff);
+      if (solution_diff) diff_history.push_back(*solution_diff);
 
       std::ios_base::fmtflags flg = Moose::out.flags();
       std::streamsize pcs = Moose::out.precision();
-      if (_solution_diff)
+      if (solution_diff)
       {
         _console << std::endl;
         _console << " +================+=====================+=====================+\n";
@@ -339,7 +345,7 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
 
     if (cheb_on)
     {
-      chebyshev(iter);
+      chebyshev(iter, solution_diff);
       if (echo)
         _console << " Chebyshev step: " << chebyshev_parameters.icheb << std::endl;
     }
@@ -357,8 +363,8 @@ EigenExecutionerBase::inversePowerIteration(unsigned int min_iter,
         bool converged = true;
         Real keff_error = fabs(k_old-k)/k;
         if (keff_error>tol_eig) converged = false;
-        if (_solution_diff)
-          if (*_solution_diff > tol_x) converged = false;
+        if (solution_diff)
+          if (*solution_diff > tol_x) converged = false;
         if (converged) break;
       }
       else
@@ -398,8 +404,7 @@ EigenExecutionerBase::postIteration()
 void
 EigenExecutionerBase::postExecute()
 {
-
-  if (!getParam<bool>("output_on_final"))
+  if (getParam<bool>("output_before_normalization"))
   {
     _problem.timeStep()++;
     Real t = _problem.time();
@@ -421,7 +426,7 @@ EigenExecutionerBase::postExecute()
       _console << " Solution is rescaled with factor " << s << " for normalization!" << std::endl;
   }
 
-  if (getParam<bool>("output_on_final") || std::fabs(s-1.0)>std::numeric_limits<Real>::epsilon())
+  if ((!getParam<bool>("output_before_normalization")) || std::fabs(s-1.0)>std::numeric_limits<Real>::epsilon())
   {
     _problem.timeStep()++;
     Real t = _problem.time();
@@ -497,12 +502,14 @@ EigenExecutionerBase::Chebyshev_Parameters::reinit ()
 }
 
 void
-EigenExecutionerBase::chebyshev(unsigned int iter)
+EigenExecutionerBase::chebyshev(unsigned int iter, Real * solution_diff)
 {
+  if (!solution_diff) mooseError("solution diff is required for Chebyshev acceleration");
+
   if (chebyshev_parameters.lgac==0)
   {
     if (chebyshev_parameters.icho==0)
-      chebyshev_parameters.ratio = *_solution_diff / chebyshev_parameters.flux_error_norm_old;
+      chebyshev_parameters.ratio = *solution_diff / chebyshev_parameters.flux_error_norm_old;
     else
     {
       chebyshev_parameters.ratio = chebyshev_parameters.ratio_new;
@@ -515,7 +522,7 @@ EigenExecutionerBase::chebyshev(unsigned int iter)
     {
       chebyshev_parameters.lgac = 1;
       chebyshev_parameters.icheb = 1;
-      chebyshev_parameters.error_begin = *_solution_diff;
+      chebyshev_parameters.error_begin = *solution_diff;
       chebyshev_parameters.iter_begin = iter;
       double alp = 2/(2-chebyshev_parameters.ratio);
       std::vector<double> coef(2);
@@ -548,7 +555,7 @@ EigenExecutionerBase::chebyshev(unsigned int iter)
     }
     else
     {*/
-      double gamma_new = (*_solution_diff/chebyshev_parameters.error_begin)*
+      double gamma_new = (*solution_diff/chebyshev_parameters.error_begin)*
         (std::cosh((chebyshev_parameters.icheb-1)*acosh(2/chebyshev_parameters.ratio-1)));
       if (gamma_new<1.0) gamma_new = 1.0;
 
@@ -588,7 +595,7 @@ EigenExecutionerBase::chebyshev(unsigned int iter)
       }
 //    }
   }
-  chebyshev_parameters.flux_error_norm_old = *_solution_diff;
+  chebyshev_parameters.flux_error_norm_old = *solution_diff;
 }
 
 void

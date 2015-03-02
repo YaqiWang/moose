@@ -15,7 +15,7 @@
     exodiff = 'ipm_final.e'
     abs_zero = 1e-09
 # because we only output the final solution, we can test with parallelization.
-    cli_args = 'Executioner/output_on_final=true Outputs/file_base=ipm_final'
+    cli_args = 'Executioner/output_pi_history=false Outputs/file_base=ipm_final'
     rel_err = 5e-05
     recover = false
     allow_warnings = true
@@ -36,7 +36,7 @@
     exodiff = 'ne_final.e'
     abs_zero = 1e-09
 # because we only output the final solution, we can test with parallelization.
-    cli_args = 'Executioner/output_on_final=true Outputs/file_base=ne_final Postprocessors/udiff/outputs=console'
+    cli_args = 'Executioner/output_after_power_iterations=false Executioner/output_before_normalization=false Outputs/file_base=ne_final Postprocessors/udiff/outputs=console'
     recover = false
     allow_warnings = true
   [../]

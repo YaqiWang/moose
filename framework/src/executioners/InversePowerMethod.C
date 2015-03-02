@@ -18,6 +18,7 @@ template<>
 InputParameters validParams<InversePowerMethod>()
 {
   InputParameters params = validParams<EigenExecutionerBase>();
+  params.addParam<PostprocessorName>("xdiff", "To evaluate |x-x_previous| for power iterations");
   params.addParam<unsigned int>("max_power_iterations", 300, "The maximum number of power iterations");
   params.addParam<unsigned int>("min_power_iterations", 1, "Minimum number of power iterations");
   params.addParam<Real>("eig_check_tol", 1e-6, "Eigenvalue convergence tolerance");
@@ -30,6 +31,7 @@ InputParameters validParams<InversePowerMethod>()
 
 InversePowerMethod::InversePowerMethod(const std::string & name, InputParameters parameters)
     :EigenExecutionerBase(name, parameters),
+     _solution_diff(isParamValid("xdiff") ? &getPostprocessorValue("xdiff") : NULL),
      _min_iter(getParam<unsigned int>("min_power_iterations")),
      _max_iter(getParam<unsigned int>("max_power_iterations")),
      _eig_check_tol(getParam<Real>("eig_check_tol")),
@@ -43,16 +45,18 @@ InversePowerMethod::InversePowerMethod(const std::string & name, InputParameters
   if (_max_iter<_min_iter) mooseError("max_power_iterations<min_power_iterations!");
   if (_eig_check_tol<0.0) mooseError("eig_check_tol<0!");
   if (_pfactor<0.0) mooseError("pfactor<0!");
-  if (getParam<bool>("output_on_final") && _output_pi)
-  {
-    mooseWarning("Only final solution will be outputted, output_pi_history=true will be ignored!");
-    _output_pi = false;
-  }
 }
 
 void
 InversePowerMethod::execute()
 {
+  if (_solution_diff)
+  {
+    _xdiff_execflag = _problem.getUserObject<UserObject>(getParam<PostprocessorName>("xdiff")).execBitFlags();
+    if ((_xdiff_execflag & (EXEC_TIMESTEP_END | EXEC_LINEAR)) == EXEC_NONE)
+    mooseError("xdiff postprocessor for the power method has to be executed on timestep or residual");
+  }
+
   preExecute();
 
   takeStep();
@@ -71,8 +75,8 @@ InversePowerMethod::takeStep()
   Real initial_res;
   Real t0 = _problem.timeStep();
   inversePowerIteration(_min_iter, _max_iter, _pfactor, _cheb_on, _eig_check_tol,
-                        std::numeric_limits<Real>::max(), true, _output_pi, t0,
-                        _eigenvalue, initial_res);
+                        std::numeric_limits<Real>::max(), true, _output_pi, t0, true,
+                        _solution_diff, _eigenvalue, initial_res);
   postSolve();
   printEigenvalue();
 
