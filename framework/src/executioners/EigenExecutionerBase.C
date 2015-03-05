@@ -148,15 +148,25 @@ EigenExecutionerBase::makeBXConsistent(Real k)
   {
     // On the first time entering, the _source_integral has been updated properly in FEProblem::initialSetup()
     _eigen_sys.scaleSystemSolution(EigenSystem::EIGEN, k/_source_integral);
-    // update all aux variables
-    for (unsigned int i=0; i<Moose::exec_types.size(); i++)
-    {
-      // EXEC_CUSTOM is special, should be treated only by specifically designed executioners.
-      if (Moose::exec_types[i]==EXEC_CUSTOM) continue;
-      _problem.computeUserObjects(Moose::exec_types[i], UserObjectWarehouse::PRE_AUX);
-      _problem.computeAuxiliaryKernels(Moose::exec_types[i]);
-      _problem.computeUserObjects(Moose::exec_types[i], UserObjectWarehouse::POST_AUX);
-    }
+    /*
+     * We met situations in depletion calculations that updating all aux variables and UOs is not the correct behavior.
+     * Instead, we should only update the eigenvalue postprocessor and all its dependent objects.
+     * Unfortunately we currently have no way to do this.
+     *
+     * We will tempararily just evaluate objects on linear.
+     */
+    //// update all aux variables
+    //for (unsigned int i=0; i<Moose::exec_types.size(); i++)
+    //{
+    //  // EXEC_CUSTOM is special, should be treated only by specifically designed executioners.
+    //  if (Moose::exec_types[i]==EXEC_CUSTOM) continue;
+    //  _problem.computeUserObjects(Moose::exec_types[i], UserObjectWarehouse::PRE_AUX);
+    //  _problem.computeAuxiliaryKernels(Moose::exec_types[i]);
+    //  _problem.computeUserObjects(Moose::exec_types[i], UserObjectWarehouse::POST_AUX);
+    //}
+    _problem.computeUserObjects(EXEC_LINEAR, UserObjectWarehouse::PRE_AUX);
+    _problem.computeAuxiliaryKernels(EXEC_LINEAR);
+    _problem.computeUserObjects(EXEC_LINEAR, UserObjectWarehouse::POST_AUX);
     std::stringstream ss;
     ss << std::fixed << std::setprecision(10) << _source_integral;
     _console << " |Bx_0| = " << ss.str() << std::endl;
