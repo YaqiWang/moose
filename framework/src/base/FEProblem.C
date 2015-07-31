@@ -460,6 +460,11 @@ void FEProblem::initialSetup()
   if (_material_props.hasStatefulProperties() || _bnd_material_props.hasStatefulProperties())
     _has_initialized_stateful = true;
 
+  // Call initialSetup on the nonlinear system
+  _nl.initialSetupBCs();
+  _nl.initialSetupKernels();
+  _nl.initialSetup();
+
   // Auxilary variable initialSetup calls
   _aux.initialSetup();
 
@@ -481,7 +486,6 @@ void FEProblem::initialSetup()
   // Possibly reinit one more time to get ghosting correct
   reinitBecauseOfGhostingOrNewGeomObjects();
   Moose::setup_perf_log.pop("reinit() after updateGeomSearch()","Setup");
-
 
   if (_displaced_mesh)
     _displaced_problem->updateMesh(*_nl.currentSolution(), *_aux.currentSolution());
@@ -539,6 +543,7 @@ void FEProblem::initialSetup()
     Moose::setup_perf_log.push("Initial computeUserObjects()","Setup");
 
     computeUserObjects(EXEC_INITIAL, UserObjectWarehouse::PRE_AUX);
+
     _aux.compute(EXEC_INITIAL);
 
     if (_use_legacy_uo_initialization)
@@ -555,13 +560,23 @@ void FEProblem::initialSetup()
       computeUserObjects(EXEC_TIMESTEP_BEGIN);
       computeUserObjects(EXEC_LINEAR);
     }
+
+    // Perform an initial residual evaluation to set save-in variables
+    // Note: time kernels need not to be evaluated on initial because their contribution should be just zero.
+    //       They actually cannot be evaluated because we set the time step size to zero on initial.
+    if (_nl.hasSaveIn())
+    {
+      _nl.computeResidual(*_nl.sys().rhs, Moose::KT_NONTIME);
+      // We want to call post user object evaluation one more time in case they depends on the save-in variables.
+      computeUserObjects(EXEC_INITIAL, UserObjectWarehouse::POST_AUX);
+    }
+
+    // We will currently not have diag-save-in variables evaluated on initial
+    //if (_nl.hasDiagSaveIn())
+    //  _nl.computeJacobian(*_nl.sys().matrix);
+
     Moose::setup_perf_log.pop("Initial computeUserObjects()","Setup");
   }
-
-  _nl.initialSetupBCs();
-  _nl.initialSetupKernels();
-
-  _nl.initialSetup();
 
   // Here we will initialize the stateful properties once more since they may have been updated
   // during initialSetup by calls to computeProperties.

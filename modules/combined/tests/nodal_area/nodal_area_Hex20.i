@@ -164,7 +164,8 @@
     type = NodalSum
     variable = nodal_area_dummy_name
     boundary = 2
-    execute_on = 'initial timestep_end'
+    execute_on = 'timestep_end'
+#    execute_on = 'initial timestep_end'
   [../]
 []
 

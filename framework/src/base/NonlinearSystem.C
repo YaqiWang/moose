@@ -142,7 +142,10 @@ NonlinearSystem::NonlinearSystem(FEProblem & fe_problem, const std::string & nam
     _final_residual(0.),
     _computing_initial_residual(false),
     _print_all_var_norms(false),
-    _has_nodalbc_save_in(false)
+    _has_save_in(false),
+    _has_diag_save_in(false),
+    _has_nodalbc_save_in(false),
+    _has_nodalbc_diag_save_in(false)
 {
   _sys.nonlinear_solver->residual      = Moose::compute_residual;
   _sys.nonlinear_solver->jacobian      = Moose::compute_jacobian;
@@ -512,6 +515,11 @@ NonlinearSystem::addKernel(const std::string & kernel_name, const std::string & 
     // Add the kernel to the warehouse
     _kernels[tid].addKernel(kernel, blk_ids);
   }
+
+  if (parameters.get<std::vector<AuxVariableName> >("save_in").size() > 0)
+    _has_save_in = true;
+  if (parameters.get<std::vector<AuxVariableName> >("diag_save_in").size() > 0)
+    _has_diag_save_in = true;
 }
 
 void
@@ -551,14 +559,20 @@ NonlinearSystem::addBoundaryCondition(const std::string & bc_name, const std::st
     {
       _bcs[tid].addNodalBC(boundary_ids, nbc);
       _vars[tid].addBoundaryVars(boundary_ids, nbc->getCoupledVars());
-      if (parameters.get<std::vector<AuxVariableName> >("save_in").size() > 0 ||
-          parameters.get<std::vector<AuxVariableName> >("diag_save_in").size() > 0)
+      if (parameters.get<std::vector<AuxVariableName> >("save_in").size() > 0)
         _has_nodalbc_save_in = true;
+      if (parameters.get<std::vector<AuxVariableName> >("diag_save_in").size() > 0)
+        _has_nodalbc_diag_save_in = true;
     }
     else if (ibc.get())
     {
       _bcs[tid].addBC(boundary_ids, ibc);
       _vars[tid].addBoundaryVars(boundary_ids, ibc->getCoupledVars());
+
+      if (parameters.get<std::vector<AuxVariableName> >("save_in").size() > 0)
+        _has_save_in = true;
+      if (parameters.get<std::vector<AuxVariableName> >("diag_save_in").size() > 0)
+        _has_diag_save_in = true;
     }
     else
       mooseError("Unknown type of BoundaryCondition object");
@@ -680,16 +694,28 @@ NonlinearSystem::computeResidual(NumericVector<Number> & residual, Moose::Kernel
 
   try
   {
-    residual.zero();
-    residualVector(Moose::KT_TIME).zero();
-    residualVector(Moose::KT_NONTIME).zero();
-    _time_integrator->preStep();
-    computeTimeDerivatives();
+    if (type == Moose::KT_NONTIME || type == Moose::KT_ALL)
+      residualVector(Moose::KT_NONTIME).zero();
+    if (type == Moose::KT_TIME || type == Moose::KT_ALL)
+    {
+      residual.zero();
+      residualVector(Moose::KT_TIME).zero();
+      _time_integrator->preStep();
+      computeTimeDerivatives();
+    }
+
     computeResidualInternal(type);
-    residualVector(Moose::KT_TIME).close();
-    residualVector(Moose::KT_NONTIME).close();
-    _time_integrator->postStep(residual);
-    residual.close();
+
+    if (type == Moose::KT_NONTIME || type == Moose::KT_ALL)
+      residualVector(Moose::KT_NONTIME).close();
+    if (type == Moose::KT_TIME || type == Moose::KT_ALL)
+    {
+      residualVector(Moose::KT_TIME).close();
+      _time_integrator->postStep(residual);
+      residual.close();
+    }
+    else
+      residual = residualVector(Moose::KT_NONTIME);
 
     computeNodalBCs(residual);
 
@@ -701,8 +727,10 @@ NonlinearSystem::computeResidual(NumericVector<Number> & residual, Moose::Kernel
     }
 
     // Need to close and update the aux system in case residuals were saved to it.
-    _fe_problem.getAuxiliarySystem().solution().close();
-    _fe_problem.getAuxiliarySystem().update();
+    if (_has_nodalbc_save_in)
+      _fe_problem.getAuxiliarySystem().solution().close();
+    if (hasSaveIn())
+      _fe_problem.getAuxiliarySystem().update();
   }
   catch (MooseException & e)
   {
@@ -1247,7 +1275,7 @@ void
 NonlinearSystem::computeNodalBCs(NumericVector<Number> & residual)
 {
   // We need to close the diag_save_in variables on the aux system before NodalBCs clear the dofs on boundary nodes
-  if (_has_nodalbc_save_in)
+  if (_has_save_in)
     _fe_problem.getAuxiliarySystem().solution().close();
 
   PARALLEL_TRY {
@@ -1814,7 +1842,7 @@ NonlinearSystem::computeJacobianInternal(SparseMatrix<Number> &  jacobian)
   jacobian.close();
 
   // We need to close the save_in variables on the aux system before NodalBCs clear the dofs on boundary nodes
-  if (_has_nodalbc_save_in)
+  if (_has_diag_save_in)
     _fe_problem.getAuxiliarySystem().solution().close();
 
   PARALLEL_TRY {
@@ -1902,6 +1930,13 @@ NonlinearSystem::computeJacobianInternal(SparseMatrix<Number> &  jacobian)
   }
   PARALLEL_CATCH;
   jacobian.close();
+
+  // We need to close the save_in variables on the aux system before NodalBCs clear the dofs on boundary nodes
+  if (_has_nodalbc_diag_save_in)
+    _fe_problem.getAuxiliarySystem().solution().close();
+
+  if (hasDiagSaveIn())
+    _fe_problem.getAuxiliarySystem().update();
 
   _currently_computing_jacobian = false;
 }
