@@ -3412,6 +3412,34 @@ FEProblemBase::advanceState()
 
   if (_bnd_material_props.hasStatefulProperties())
     _bnd_material_props.shift();
+
+  std::cout << "dt=" << dt() << " dtold=" << dtOld() << std::endl;
+  if (dtOld() > 0.0)
+  {
+    _nl->solution() *= (1 + dtOld() / dt());
+    _nl->solution() -= _nl->solutionOlder();
+    _nl->solution() *= (dt() / dtOld());
+    _nl->update();
+  
+//    _aux->solution() *= (1 + dtOld() / dt());
+//    _aux->solution() -= _aux->solutionOlder();
+//    _aux->solution() *= (dt() / dtOld());
+//    _aux->update();
+    if ( _displaced_problem != NULL )
+    {
+      _displaced_problem->nlSys().solution() *= (1 + dtOld() / dt());
+      _displaced_problem->nlSys().solution() -= _displaced_problem->nlSys().solutionOlder();
+      _displaced_problem->nlSys().solution() *= (dt() / dtOld());
+      _displaced_problem->nlSys().update();
+
+//      _displaced_problem->auxSys().solution() *= (1 + dtOld() / dt());
+//      _displaced_problem->auxSys().solution() -= _displaced_problem->auxSys().solutionOlder();
+//      _displaced_problem->auxSys().solution() *= (dt() / dtOld());
+//      _displaced_problem->auxSys().update();
+    }
+  }
+  _nl->solutionOld().print();
+  _aux->solutionOld().print();
 }
 
 void

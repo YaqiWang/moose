@@ -88,7 +88,7 @@
       splitting = 'u v' # 'u' and 'v' are the names of subsolvers
       # Generally speaking, there are four types of splitting we could choose
       # <additive,multiplicative,symmetric_multiplicative,schur>
-      splitting_type  = additive
+      splitting_type  = multiplicative #additive
       # An approximate solution to the original system
       # | A_uu  A_uv | | u | _ |f_u|
       # |  0    A_vv | | v | - |f_v|
