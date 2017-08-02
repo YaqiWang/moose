@@ -104,6 +104,7 @@
 #include "FunctionGradAux.h"
 #include "CheckCurrentExecAux.h"
 #include "FunctionDerivativeAux.h"
+#include "MaterialPropertyBlockAux.h"
 
 #include "ChannelGradientBC.h"
 #include "RobinBC.h"
@@ -160,6 +161,7 @@
 #include "ImplicitStateful.h"
 #include "MaterialDerivativeTestMaterial.h"
 #include "QpMaterial.h"
+#include "SubdomainConstantMaterial.h"
 
 #include "DGMDDBC.h"
 #include "DGFunctionConvectionDirichletBC.h"
@@ -413,6 +415,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerAux(FunctionGradAux);
   registerAux(CheckCurrentExecAux);
   registerAux(FunctionDerivativeAux);
+  registerAux(MaterialPropertyBlockAux);
 
   // Interface kernels
   registerInterfaceKernel(InterfaceDiffusion);
@@ -479,6 +482,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerMaterial(ThrowMaterial);
   registerMaterial(MaterialDerivativeTestMaterial);
   registerMaterial(QpMaterial);
+  registerMaterial(SubdomainConstantMaterial);
 
   registerScalarKernel(ExplicitODE);
   registerScalarKernel(ImplicitODEx);
