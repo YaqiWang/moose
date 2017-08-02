@@ -1507,7 +1507,6 @@ FEProblemBase::clearDiracInfo()
 void
 FEProblemBase::subdomainSetup(SubdomainID subdomain, THREAD_ID tid)
 {
-
   // Material Warehouses
   _all_materials.subdomainSetup(subdomain, tid);
 
@@ -1519,6 +1518,13 @@ FEProblemBase::subdomainSetup(SubdomainID subdomain, THREAD_ID tid)
 
   // FIXME: call displaced_problem->subdomainSetup() ?
   //        When adding possibility with materials being evaluated on displaced mesh
+}
+
+void
+FEProblemBase::neighborSubdomainSetup(SubdomainID subdomain, THREAD_ID tid)
+{
+  // Material Warehouses
+  _all_materials.neighborSubdomainSetup(subdomain, tid);
 }
 
 void
