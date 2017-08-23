@@ -214,6 +214,7 @@
 #include "ElementL2Diff.h"
 #include "TestPostprocessor.h"
 #include "ElementSidePP.h"
+#include "ElementMomentSum.h"
 #include "RealControlParameterReporter.h"
 #include "ScalarCoupledPostprocessor.h"
 #include "NumAdaptivityCycles.h"
@@ -557,6 +558,7 @@ MooseTestApp::registerObjects(Factory & factory)
   registerPostprocessor(NumAdaptivityCycles);
   registerPostprocessor(TestDiscontinuousValuePP);
   registerPostprocessor(RandomPostprocessor);
+  registerPostprocessor(ElementMomentSum);
 
   registerVectorPostprocessor(LateDeclarationVectorPostprocessor);
   registerVectorPostprocessor(ChannelGradientVectorPostprocessor);

@@ -137,6 +137,17 @@
 
 []
 
+[Postprocessors]
+  [./sum1]
+    type = ElementMomentSum
+    variable = u
+  [../]
+  [./sum2]
+    type = ElementMomentSum
+    variable = one
+  [../]
+[]
+
 [Outputs]
   file_base = out
   [./exodus]
