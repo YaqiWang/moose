@@ -27,7 +27,7 @@ validParams<SideSetsAroundSubdomain>()
   InputParameters params = validParams<AddSideSetsBase>();
   params.addRequiredParam<std::vector<BoundaryName>>(
       "new_boundary", "The list of boundary IDs to create on the supplied subdomain");
-  params.addRequiredParam<SubdomainName>("block", "The block around which to create sidesets");
+  params.addRequiredParam<std::vector<SubdomainName>>("block", "The blocks around which to create sidesets");
   params.addParam<Point>("normal",
                          "If supplied, only faces with normal equal to this, up to "
                          "normal_tol, will be added to the sidesets specified");
@@ -66,7 +66,8 @@ SideSetsAroundSubdomain::modify()
   MeshBase & mesh = _mesh_ptr->getMesh();
 
   // Extract the block ID
-  SubdomainID block_id = _mesh_ptr->getSubdomainID(getParam<SubdomainName>("block"));
+  auto blocks = _mesh_ptr->getSubdomainIDs(getParam<std::vector<SubdomainName> >("block"));
+  std::set<SubdomainID> block_ids(blocks.begin(), blocks.end());
 
   // Create the boundary IDs from the list of names provided (the true flag creates ids from unknown
   // names)
@@ -97,7 +98,7 @@ SideSetsAroundSubdomain::modify()
     SubdomainID curr_subdomain = elem->subdomain_id();
 
     // We only need to loop over elements in the source subdomain
-    if (curr_subdomain != block_id)
+    if (block_ids.count(curr_subdomain) == 0)
       continue;
 
     for (unsigned int side = 0; side < elem->n_sides(); ++side)
@@ -112,8 +113,7 @@ SideSetsAroundSubdomain::modify()
         queries[elem->processor_id()].push_back(std::make_pair(elem->id(), side));
       }
       else if (neighbor == NULL || // element on boundary OR
-               neighbor->subdomain_id() !=
-                   block_id) // neighboring element is on a different subdomain
+               block_ids.count(neighbor->subdomain_id()) == 0) // neighboring element is on a different subdomain
       {
         if (_using_normal)
         {
@@ -169,7 +169,7 @@ SideSetsAroundSubdomain::modify()
         const Elem * neighbor = elem->neighbor_ptr(side);
 
         if (neighbor == NULL ||                   // element on boundary OR
-            neighbor->subdomain_id() != block_id) // neighboring element is on a different subdomain
+            block_ids.count(neighbor->subdomain_id()) == 0) // neighboring element is on a different subdomain
         {
           if (_using_normal)
           {
@@ -215,5 +215,8 @@ SideSetsAroundSubdomain::modify()
 
   // Assign the supplied names to the newly created side sets
   for (unsigned int i = 0; i < boundary_ids.size(); ++i)
+  {
     boundary_info.sideset_name(boundary_ids[i]) = _boundary_names[i];
+    boundary_info.nodeset_name(boundary_ids[i]) = _boundary_names[i];
+  }
 }
