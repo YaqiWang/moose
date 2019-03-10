@@ -27,6 +27,7 @@ validParams<AuxKernel>()
   InputParameters params = validParams<MooseObject>();
   params += validParams<BlockRestrictable>();
   params += validParams<BoundaryRestrictable>();
+  params += validParams<TransientInterface>();
   params += validParams<RandomInterface>();
   params += validParams<MeshChangedInterface>();
   params += validParams<MaterialPropertyInterface>();

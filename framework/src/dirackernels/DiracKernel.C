@@ -21,6 +21,7 @@ InputParameters
 validParams<DiracKernel>()
 {
   InputParameters params = validParams<MooseObject>();
+  params += validParams<TransientInterface>();
   params += validParams<MaterialPropertyInterface>();
   params += validParams<TaggingInterface>();
   params.addRequiredParam<NonlinearVariableName>(

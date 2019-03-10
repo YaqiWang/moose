@@ -30,7 +30,6 @@ InputParameters
 validParams<TransientMultiApp>()
 {
   InputParameters params = validParams<MultiApp>();
-  params += validParams<TransientInterface>();
 
   params.addParam<bool>("sub_cycling",
                         false,

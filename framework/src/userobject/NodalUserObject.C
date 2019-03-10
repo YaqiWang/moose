@@ -26,6 +26,7 @@ validParams<NodalUserObject>()
   params += validParams<BlockRestrictable>();
   params += validParams<BoundaryRestrictable>();
   params += validParams<RandomInterface>();
+  params += validParams<TransientInterface>();
   return params;
 }
 

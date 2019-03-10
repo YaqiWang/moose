@@ -19,6 +19,7 @@ InputParameters
 validParams<AuxScalarKernel>()
 {
   InputParameters params = validParams<MooseObject>();
+  params += validParams<TransientInterface>();
   params += validParams<SetupInterface>();
   params += validParams<MeshChangedInterface>();
 

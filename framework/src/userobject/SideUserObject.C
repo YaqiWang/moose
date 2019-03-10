@@ -19,6 +19,7 @@ validParams<SideUserObject>()
   InputParameters params = validParams<UserObject>();
   params += validParams<BoundaryRestrictableRequired>();
   params += validParams<MaterialPropertyInterface>();
+  params += validParams<TransientInterface>();
   return params;
 }
 
