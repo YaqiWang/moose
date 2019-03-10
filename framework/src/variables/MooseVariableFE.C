@@ -145,6 +145,23 @@ MooseVariableFE<OutputType>::MooseVariableFE(unsigned int var_num,
 
   _need_vector_tag_u.resize(num_vector_tags);
   _vector_tag_u.resize(num_vector_tags);
+  _need_vector_tag_grad_u.resize(num_vector_tags);
+  _vector_tag_grad_u.resize(num_vector_tags);
+  _need_vector_tag_second_u.resize(num_vector_tags);
+  _vector_tag_second_u.resize(num_vector_tags);
+
+  _vector_tags_dof_u_neighbor.resize(num_vector_tags);
+  _need_vector_tag_dof_u_neighbor.resize(num_vector_tags);
+
+  _need_vector_tag_u_neighbor.resize(num_vector_tags);
+  _vector_tag_u_neighbor.resize(num_vector_tags);
+  _need_vector_tag_grad_u_neighbor.resize(num_vector_tags);
+  _vector_tag_grad_u_neighbor.resize(num_vector_tags);
+  _need_vector_tag_second_u_neighbor.resize(num_vector_tags);
+  _vector_tag_second_u_neighbor.resize(num_vector_tags);
+
+  _tag_nodal_value.resize(num_vector_tags);
+  _tag_nodal_value_neighbor.resize(num_vector_tags);
 
   auto num_matrix_tags = _sys.subproblem().numMatrixTags();
 
@@ -184,23 +201,47 @@ MooseVariableFE<OutputType>::~MooseVariableFE()
 
   for (auto & dof_u : _vector_tags_dof_u)
     dof_u.release();
-
   _vector_tags_dof_u.clear();
 
   for (auto & dof_u : _matrix_tags_dof_u)
     dof_u.release();
-
   _matrix_tags_dof_u.clear();
 
   for (auto & tag_u : _vector_tag_u)
     tag_u.release();
-
   _vector_tag_u.clear();
 
   for (auto & tag_u : _matrix_tag_u)
     tag_u.release();
-
   _matrix_tag_u.clear();
+
+  for (auto & tag_grad_u : _vector_tag_grad_u)
+    tag_grad_u.release();
+  _vector_tag_grad_u.clear();
+
+  for (auto & tag_second_u : _vector_tag_second_u)
+    tag_second_u.release();
+  _vector_tag_second_u.clear();
+
+  for (auto & dof_u : _vector_tags_dof_u_neighbor)
+    dof_u.release();
+  _vector_tags_dof_u_neighbor.clear();
+
+  for (auto & tag_u : _vector_tag_u_neighbor)
+    tag_u.release();
+  _vector_tag_u_neighbor.clear();
+
+  for (auto & tag_u : _matrix_tag_u_neighbor)
+    tag_u.release();
+  _matrix_tag_u_neighbor.clear();
+
+  for (auto & tag_grad_u : _vector_tag_grad_u_neighbor)
+    tag_grad_u.release();
+  _vector_tag_grad_u_neighbor.clear();
+
+  for (auto & tag_second_u : _vector_tag_second_u_neighbor)
+    tag_second_u.release();
+  _vector_tag_second_u_neighbor.clear();
 
   _u.release();
   _u_old.release();
@@ -582,6 +623,14 @@ MooseVariableFE<OutputType>::dofValue()
 
 template <typename OutputType>
 const MooseArray<Number> &
+MooseVariableFE<OutputType>::vectorTagDofValues(TagID tag)
+{
+  _need_vector_tag_dof_u[tag] = true;
+  return _vector_tags_dof_u[tag];
+}
+
+template <typename OutputType>
+const MooseArray<Number> &
 MooseVariableFE<OutputType>::dofValues()
 {
   _need_dof_values = true;
@@ -610,6 +659,14 @@ MooseVariableFE<OutputType>::dofValuesPreviousNL()
 {
   _need_dof_values_previous_nl = true;
   return _dof_values_previous_nl;
+}
+
+template <typename OutputType>
+const MooseArray<Number> &
+MooseVariableFE<OutputType>::vectorTagDofValuesNeighbor(TagID tag)
+{
+  _need_vector_tag_dof_u_neighbor[tag] = true;
+  return _vector_tags_dof_u_neighbor[tag];
 }
 
 template <typename OutputType>
@@ -916,8 +973,14 @@ MooseVariableFE<OutputType>::computeValuesHelper(
   _grad_u.resize(nqp);
 
   for (auto tag : active_coupleable_vector_tags)
+  {
     if (_need_vector_tag_u[tag])
       _vector_tag_u[tag].resize(nqp);
+    if (_need_vector_tag_grad_u[tag])
+      _vector_tag_grad_u[tag].resize(nqp);
+    if (_need_vector_tag_second_u[tag])
+      _vector_tag_second_u[tag].resize(nqp);
+  }
 
   for (auto tag : active_coupleable_matrix_tags)
     if (_need_matrix_tag_u[tag])
@@ -992,8 +1055,14 @@ MooseVariableFE<OutputType>::computeValuesHelper(
     _grad_u[i] = 0;
 
     for (auto tag : active_coupleable_vector_tags)
+    {
       if (_need_vector_tag_u[tag])
         _vector_tag_u[tag][i] = 0;
+      if (_need_vector_tag_grad_u[tag])
+        _vector_tag_grad_u[tag][i] = 0;
+      if (_need_vector_tag_second_u[tag])
+        _vector_tag_second_u[tag][i] = 0;
+    }
 
     for (auto tag : active_coupleable_matrix_tags)
       if (_need_matrix_tag_u[tag])
@@ -1124,6 +1193,17 @@ MooseVariableFE<OutputType>::computeValuesHelper(
   typename OutputTools<OutputType>::OutputSecond * second_u_older_qp = NULL;
   typename OutputTools<OutputType>::OutputSecond * second_u_previous_nl_qp = NULL;
 
+  if (safe_access_tagged_vectors)
+  {
+    for (auto tag : active_coupleable_vector_tags)
+      if (_need_vector_tag_dof_u[tag] && _sys.hasVector(tag) && _sys.getVector(tag).closed())
+      {
+        _vector_tags_dof_u[tag].resize(num_dofs);
+        auto & vec = _sys.getVector(tag);
+        vec.get(_dof_indices, &_vector_tags_dof_u[tag][0]);
+      }
+  }
+
   for (unsigned int i = 0; i < num_dofs; i++)
   {
     idx = _dof_indices[i];
@@ -1242,11 +1322,18 @@ MooseVariableFE<OutputType>::computeValuesHelper(
       if (safe_access_tagged_vectors)
       {
         for (auto tag : active_coupleable_vector_tags)
-          if (_need_vector_tag_u[tag] && _sys.hasVector(tag) && _sys.getVector(tag).closed())
+        {
+          if (_sys.hasVector(tag) && _sys.getVector(tag).closed())
           {
             tag_local_value = _sys.getVector(tag)(idx);
-            _vector_tag_u[tag][qp] += *phi_local * tag_local_value;
+            if (_need_vector_tag_u[tag])
+              _vector_tag_u[tag][qp] += *phi_local * tag_local_value;
+            if (_need_vector_tag_grad_u[tag])
+              _vector_tag_grad_u[tag][qp].add_scaled(*dphi_qp, tag_local_value);
+            if (_need_vector_tag_second_u[tag])
+              _vector_tag_second_u[tag][qp].add_scaled(*d2phi_local, tag_local_value);
           }
+        }
       }
 
       if (safe_access_tagged_matrices)
@@ -1499,11 +1586,25 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
                                                          const FieldVariablePhiGradient & grad_phi,
                                                          const FieldVariablePhiSecond *& second_phi)
 {
+  auto safe_access_tagged_vectors = _sys.subproblem().safeAccessTaggedVectors();
+  auto & active_coupleable_vector_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
+
   bool is_transient = _subproblem.isTransient();
   unsigned int nqp = qrule->n_points();
 
   _u_neighbor.resize(nqp);
   _grad_u_neighbor.resize(nqp);
+
+  for (auto tag : active_coupleable_vector_tags)
+  {
+    if (_need_vector_tag_u_neighbor[tag])
+      _vector_tag_u_neighbor[tag].resize(nqp);
+    if (_need_vector_tag_grad_u_neighbor[tag])
+      _vector_tag_grad_u_neighbor[tag].resize(nqp);
+    if (_need_vector_tag_second_u_neighbor[tag])
+      _vector_tag_second_u_neighbor[tag].resize(nqp);
+  }
 
   if (_need_second_neighbor)
     _second_u_neighbor.resize(nqp);
@@ -1557,6 +1658,16 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
   {
     _u_neighbor[i] = 0;
     _grad_u_neighbor[i] = 0;
+
+    for (auto tag : active_coupleable_vector_tags)
+    {
+      if (_need_vector_tag_u_neighbor[tag])
+        _vector_tag_u_neighbor[tag][i] = 0;
+      if (_need_vector_tag_grad_u_neighbor[tag])
+        _vector_tag_grad_u_neighbor[tag][i] = 0;
+      if (_need_vector_tag_second_u_neighbor[tag])
+        _vector_tag_second_u_neighbor[tag][i] = 0;
+    }
 
     if (_need_second_neighbor)
       _second_u_neighbor[i] = 0;
@@ -1649,6 +1760,18 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
   typename OutputTools<OutputType>::OutputGradient dphi_local;
   typename OutputTools<OutputType>::OutputSecond d2phi_local;
 
+  if (safe_access_tagged_vectors)
+  {
+    for (auto tag : active_coupleable_vector_tags)
+      if (_need_vector_tag_dof_u_neighbor[tag] && _sys.hasVector(tag) &&
+          _sys.getVector(tag).closed())
+      {
+        _vector_tags_dof_u_neighbor[tag].resize(num_dofs);
+        auto & vec = _sys.getVector(tag);
+        vec.get(_dof_indices_neighbor, &_vector_tags_dof_u_neighbor[tag][0]);
+      }
+  }
+
   for (unsigned int i = 0; i < num_dofs; ++i)
   {
     idx = _dof_indices_neighbor[i];
@@ -1709,6 +1832,24 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
 
       _u_neighbor[qp] += phi_local * soln_local;
       _grad_u_neighbor[qp] += dphi_local * soln_local;
+
+      if (safe_access_tagged_vectors)
+      {
+        for (auto tag : active_coupleable_vector_tags)
+        {
+          if (_sys.hasVector(tag) && _sys.getVector(tag).closed())
+          {
+            Real tag_local_value = _sys.getVector(tag)(idx);
+            if (_need_vector_tag_u_neighbor[tag])
+              _vector_tag_u_neighbor[tag][qp] += phi_local * tag_local_value;
+            if (_need_vector_tag_grad_u_neighbor[tag])
+              _vector_tag_grad_u_neighbor[tag][qp].add_scaled(dphi_local, tag_local_value);
+            // fix me here
+            if (_need_vector_tag_second_u_neighbor[tag])
+              _vector_tag_second_u_neighbor[tag][qp].add_scaled(d2phi_local, tag_local_value);
+          }
+        }
+      }
 
       if (_need_second_neighbor)
         _second_u_neighbor[qp] += d2phi_local * soln_local;
@@ -1833,6 +1974,70 @@ MooseVariableFE<OutputType>::nodalVectorTagValue(TagID tag)
 
     if (_sys.hasVector(tag) && tag < _vector_tags_dof_u.size())
       return _vector_tags_dof_u[tag];
+    else
+      mooseError("Tag is not associated with any vector or there is no any data for tag ",
+                 tag,
+                 " for nodal variable ",
+                 name());
+  }
+  else
+    mooseError("Nodal values can be requested only on nodal variables, variable '",
+               name(),
+               "' is not nodal.");
+}
+
+template <typename OutputType>
+const MooseArray<Real> &
+MooseVariableFE<OutputType>::nodalVectorTagValueNeighbor(TagID tag)
+{
+  if (isNodal())
+  {
+    _need_vector_tag_dof_u_neighbor[tag] = true;
+
+    if (_sys.hasVector(tag) && tag < _vector_tags_dof_u_neighbor.size())
+      return _vector_tags_dof_u_neighbor[tag];
+    else
+      mooseError("Tag is not associated with any vector or there is no any data for tag ",
+                 tag,
+                 " for nodal variable ",
+                 name());
+  }
+  else
+    mooseError("Nodal values can be requested only on nodal variables, variable '",
+               name(),
+               "' is not nodal.");
+}
+
+template <typename OutputType>
+const OutputType &
+MooseVariableFE<OutputType>::vectorTagNodalValue(TagID tag)
+{
+  if (isNodal())
+  {
+    _need_vector_tag_dof_u[tag] = true;
+    if (_sys.hasVector(tag) && tag < _tag_nodal_value.size())
+      return _tag_nodal_value[tag];
+    else
+      mooseError("Tag is not associated with any vector or there is no any data for tag ",
+                 tag,
+                 " for nodal variable ",
+                 name());
+  }
+  else
+    mooseError("Nodal values can be requested only on nodal variables, variable '",
+               name(),
+               "' is not nodal.");
+}
+
+template <typename OutputType>
+const OutputType &
+MooseVariableFE<OutputType>::vectorTagNodalValueNeighbor(TagID tag)
+{
+  if (isNodal())
+  {
+    _need_vector_tag_dof_u_neighbor[tag] = true;
+    if (_sys.hasVector(tag) && tag < _tag_nodal_value_neighbor.size())
+      return _tag_nodal_value_neighbor[tag];
     else
       mooseError("Tag is not associated with any vector or there is no any data for tag ",
                  tag,
@@ -2078,6 +2283,8 @@ MooseVariableFE<OutputType>::computeNodalValues()
         {
           auto & vec = _sys.getVector(tag);
           vec.get(_dof_indices, &_vector_tags_dof_u[tag][0]);
+          for (decltype(n) i = 0; i < n; ++i)
+            assignNodalValue(_dof_values[i], tag, i);
         }
     }
 
@@ -2179,6 +2386,10 @@ template <typename OutputType>
 void
 MooseVariableFE<OutputType>::computeNodalNeighborValues()
 {
+  auto safe_access_tagged_vectors = _sys.subproblem().safeAccessTaggedVectors();
+  auto & active_coupleable_vector_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
+
   if (_neighbor_has_dof_indices)
   {
     const unsigned int n = _dof_indices_neighbor.size();
@@ -2187,6 +2398,19 @@ MooseVariableFE<OutputType>::computeNodalNeighborValues()
     _sys.currentSolution()->get(_dof_indices_neighbor, &_dof_values_neighbor[0]);
     for (unsigned int i = 0; i < n; ++i)
       assignNeighborNodalValue(_dof_values_neighbor[i], i);
+
+    if (safe_access_tagged_vectors)
+    {
+      for (auto tag : active_coupleable_vector_tags)
+        if (_need_vector_tag_dof_u_neighbor[tag] && _sys.hasVector(tag) &&
+            _sys.getVector(tag).closed())
+        {
+          auto & vec = _sys.getVector(tag);
+          vec.get(_dof_indices_neighbor, &_vector_tags_dof_u_neighbor[tag][0]);
+          for (unsigned int i = 0; i < n; ++i)
+            assignNeighborNodalValue(_dof_values_neighbor[i], tag, i);
+        }
+    }
 
     if (_need_dof_values_previous_nl_neighbor)
     {
@@ -2262,6 +2486,24 @@ MooseVariableFE<RealVectorValue>::assignNodalValue(const Real & value,
                                                    const unsigned int & component)
 {
   _nodal_value(component) = value;
+}
+
+template <typename OutputType>
+void
+MooseVariableFE<OutputType>::assignNodalValue(const Real & value,
+                                              const TagID & tag,
+                                              const unsigned int &)
+{
+  _tag_nodal_value[tag] = value;
+}
+
+template <>
+void
+MooseVariableFE<RealVectorValue>::assignNodalValue(const Real & value,
+                                                   const TagID & tag,
+                                                   const unsigned int & component)
+{
+  _tag_nodal_value[tag](component) = value;
 }
 
 template <typename OutputType>
@@ -2397,6 +2639,24 @@ MooseVariableFE<RealVectorValue>::assignNeighborNodalValue(const Real & value,
                                                            const unsigned int & component)
 {
   _neighbor_nodal_value(component) = value;
+}
+
+template <typename OutputType>
+void
+MooseVariableFE<OutputType>::assignNeighborNodalValue(const Real & value,
+                                                      const TagID & tag,
+                                                      const unsigned int &)
+{
+  _tag_nodal_value_neighbor[tag] = value;
+}
+
+template <>
+void
+MooseVariableFE<RealVectorValue>::assignNeighborNodalValue(const Real & value,
+                                                           const TagID & tag,
+                                                           const unsigned int & component)
+{
+  _tag_nodal_value_neighbor[tag](component) = value;
 }
 
 template <typename OutputType>

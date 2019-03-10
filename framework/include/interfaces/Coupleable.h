@@ -736,6 +736,12 @@ protected:
 
   /// True if implicit value is required
   bool _c_is_implicit;
+  /// True if have nonlinear tag
+  bool _has_nl_tag;
+  /// True if have auxiliary tag
+  bool _has_aux_tag;
+  TagID _nl_tag_id;
+  TagID _aux_tag_id;
 
   /// Thread ID of the thread using this object
   THREAD_ID _c_tid;

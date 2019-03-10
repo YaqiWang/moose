@@ -20,9 +20,6 @@ ScalarCoupleable::ScalarCoupleable(const MooseObject * moose_object)
   : _sc_parameters(moose_object->parameters()),
     _sc_name(_sc_parameters.get<std::string>("_object_name")),
     _sc_fe_problem(*_sc_parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
-    _sc_is_implicit(_sc_parameters.have_parameter<bool>("implicit")
-                        ? _sc_parameters.get<bool>("implicit")
-                        : true),
     _coupleable_params(_sc_parameters),
     _sc_tid(_sc_parameters.isParamValid("_tid") ? _sc_parameters.get<THREAD_ID>("_tid") : 0),
     _real_zero(_sc_fe_problem._real_zero[_sc_tid]),
@@ -30,6 +27,54 @@ ScalarCoupleable::ScalarCoupleable(const MooseObject * moose_object)
     _point_zero(_sc_fe_problem._point_zero[_sc_tid])
 {
   SubProblem & problem = *_sc_parameters.getCheckedPointerParam<SubProblem *>("_subproblem");
+
+  // make sure the coupled tags are not included in residual vector tags
+  if (_sc_parameters.have_parameter<std::vector<TagName>>("extra_vector_tags"))
+  {
+    auto nl_tag_name = MooseUtils::toUpper(_sc_parameters.get<TagName>("nonlinear_vector_tag"));
+    auto tag_names = _sc_parameters.get<std::vector<TagName>>("extra_vector_tags");
+    for (auto & tag_name : tag_names)
+    {
+      auto tag_name_upper = MooseUtils::toUpper(tag_name);
+      if (tag_name_upper == nl_tag_name)
+        mooseError(tag_name, " cannot be coupled into ", moose_object->type(), " in ", _sc_name);
+    }
+  }
+
+  _sc_is_implicit = true;
+  _s_has_nl_tag = false;
+  _s_has_aux_tag = false;
+  bool has_ti_params = _sc_parameters.have_parameter<TagName>("implicit");
+  if (has_ti_params)
+  {
+    // honor users' setting of implicit parameter
+    if (_sc_parameters.isParamSetByUser("implicit"))
+    {
+      _sc_is_implicit = _sc_parameters.get<bool>("implicit");
+      if (_sc_parameters.isParamSetByUser("nonlinear_vector_tag") ||
+          _sc_parameters.isParamSetByUser("auxiliary_vector_tag"))
+        mooseError("When implicit parameter is set, both nonlinear_vector_tag and "
+                   "auxiliary_vector_tag cannot be set");
+    }
+
+    // when users set nonlinear_vector_tag, use the tagged vector for the coupled variables
+    if (_sc_parameters.isParamSetByUser("nonlinear_vector_tag"))
+    {
+      auto tagname = MooseUtils::toUpper(_sc_parameters.get<TagName>("nonlinear_vector_tag"));
+      _s_has_nl_tag = true;
+      _s_nl_tag_id = problem.getVectorTagID(tagname);
+      addScalarVariableCoupleableVectorTag(_s_nl_tag_id);
+    }
+
+    // when users set auxiliary_vector_tag, use the tagged vector for the coupled variables
+    if (_sc_parameters.isParamSetByUser("auxiliary_vector_tag"))
+    {
+      auto tagname = MooseUtils::toUpper(_sc_parameters.get<TagName>("auxiliary_vector_tag"));
+      _s_has_aux_tag = true;
+      _s_aux_tag_id = problem.getVectorTagID(tagname);
+      addScalarVariableCoupleableVectorTag(_s_aux_tag_id);
+    }
+  }
 
   // Coupling
   for (std::set<std::string>::const_iterator iter = _sc_parameters.coupledVarsBegin();
@@ -140,6 +185,10 @@ ScalarCoupleable::coupledScalarValue(const std::string & var_name, unsigned int 
     return *getDefaultValue(var_name);
 
   MooseVariableScalar * var = getScalarVar(var_name, comp);
+  if (_s_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+    return var->vectorTagSln(_s_nl_tag_id);
+  if (_s_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+    return var->vectorTagSln(_s_aux_tag_id);
   return (_sc_is_implicit) ? var->sln() : var->slnOld();
 }
 

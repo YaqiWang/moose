@@ -20,7 +20,10 @@ validParams<TransientInterface>()
       true,
       "Determines whether this object is calculated using an implicit or explicit form");
 
-  params.addParamNamesToGroup("implicit", "Advanced");
+  params.addParam<TagName>("nonlinear_vector_tag", "Tag name this interface works on");
+  params.addParam<TagName>("auxiliary_vector_tag", "Tag name this interface works on");
+
+  params.addParamNamesToGroup("implicit nonlinear_vector_tag auxiliary_vector_tag", "Advanced");
   return params;
 }
 

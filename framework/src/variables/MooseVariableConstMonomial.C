@@ -28,9 +28,29 @@ void
 MooseVariableConstMonomial::computeMonomialValuesHelper(const unsigned & nqp, const Real & phi)
 {
   bool is_transient = _subproblem.isTransient();
+  auto safe_access_tagged_vectors = _sys.subproblem().safeAccessTaggedVectors();
+  auto safe_access_tagged_matrices = _sys.subproblem().safeAccessTaggedMatrices();
+  auto & active_coupleable_matrix_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableMatrixTags(_tid);
+  auto & active_coupleable_vector_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
 
   _u.resize(nqp);
   _grad_u.resize(nqp);
+
+  for (auto tag : active_coupleable_vector_tags)
+  {
+    if (_need_vector_tag_u[tag])
+      _vector_tag_u[tag].resize(nqp);
+    if (_need_vector_tag_grad_u[tag])
+      _vector_tag_grad_u[tag].resize(nqp);
+    if (_need_vector_tag_second_u[tag])
+      _vector_tag_second_u[tag].resize(nqp);
+  }
+
+  for (auto tag : active_coupleable_matrix_tags)
+    if (_need_matrix_tag_u[tag])
+      _matrix_tag_u[tag].resize(nqp);
 
   if (_need_second)
     _second_u.resize(nqp);
@@ -119,6 +139,40 @@ MooseVariableConstMonomial::computeMonomialValuesHelper(const unsigned & nqp, co
 
   if (_need_dof_values)
     _dof_values[0] = soln;
+
+  if (safe_access_tagged_vectors)
+  {
+    for (auto tag : active_coupleable_vector_tags)
+      if (_sys.hasVector(tag) && _sys.getVector(tag).closed())
+      {
+        if (_need_vector_tag_dof_u[tag])
+        {
+          _vector_tags_dof_u[tag].resize(1);
+          auto & vec = _sys.getVector(tag);
+          _vector_tags_dof_u[tag][0] = vec(idx);
+        }
+        if (_need_vector_tag_u[tag])
+        {
+          auto & vec = _sys.getVector(tag);
+          for (unsigned int i = 0; i < nqp; ++i)
+            _vector_tag_u[tag][i] = phi * vec(idx);
+        }
+      }
+  }
+
+  if (safe_access_tagged_matrices)
+  {
+    for (auto tag : active_coupleable_matrix_tags)
+      if (_sys.hasMatrix(tag) && _sys.getMatrix(tag).closed())
+      {
+        if (_need_matrix_tag_u[tag])
+        {
+          Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
+          for (unsigned int i = 0; i < nqp; ++i)
+            _matrix_tag_u[tag][i] += phi * _sys.getMatrix(tag)(idx, idx);
+        }
+      }
+  }
 
   if (_need_u_previous_nl || _need_grad_previous_nl || _need_second_previous_nl ||
       _need_dof_values_previous_nl)
@@ -230,9 +284,22 @@ MooseVariableConstMonomial::computeMonomialNeighborValuesHelper(const unsigned &
                                                                 const Real & phi)
 {
   bool is_transient = _subproblem.isTransient();
+  auto safe_access_tagged_vectors = _sys.subproblem().safeAccessTaggedVectors();
+  auto & active_coupleable_vector_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
 
   _u_neighbor.resize(nqp);
   _grad_u_neighbor.resize(nqp);
+
+  for (auto tag : active_coupleable_vector_tags)
+  {
+    if (_need_vector_tag_u_neighbor[tag])
+      _vector_tag_u_neighbor[tag].resize(nqp);
+    if (_need_vector_tag_grad_u_neighbor[tag])
+      _vector_tag_grad_u_neighbor[tag].resize(nqp);
+    if (_need_vector_tag_second_u_neighbor[tag])
+      _vector_tag_second_u_neighbor[tag].resize(nqp);
+  }
 
   if (_need_second_neighbor)
     _second_u_neighbor.resize(nqp);
@@ -307,6 +374,26 @@ MooseVariableConstMonomial::computeMonomialNeighborValuesHelper(const unsigned &
 
   if (_need_dof_values_neighbor)
     _dof_values_neighbor[0] = soln;
+
+  if (safe_access_tagged_vectors)
+  {
+    for (auto tag : active_coupleable_vector_tags)
+      if (_sys.hasVector(tag) && _sys.getVector(tag).closed())
+      {
+        if (_need_vector_tag_dof_u_neighbor[tag])
+        {
+          auto & vec = _sys.getVector(tag);
+          _vector_tags_dof_u_neighbor[tag].resize(1);
+          _vector_tags_dof_u_neighbor[tag][0] = vec(idx);
+        }
+        if (_need_vector_tag_u_neighbor[tag])
+        {
+          auto & vec = _sys.getVector(tag);
+          for (unsigned int i = 0; i < nqp; ++i)
+            _vector_tag_u_neighbor[tag][i] = phi * vec(idx);
+        }
+      }
+  }
 
   if (is_transient)
   {

@@ -206,6 +206,12 @@ protected:
 
   /// True if implicit value is required
   bool _sc_is_implicit;
+  /// True if have nonlinear tag
+  bool _s_has_nl_tag;
+  /// True if have auxiliary tag
+  bool _s_has_aux_tag;
+  TagID _s_nl_tag_id;
+  TagID _s_aux_tag_id;
 
   /// Local InputParameters
   const InputParameters & _coupleable_params;

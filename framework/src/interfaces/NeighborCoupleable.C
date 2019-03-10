@@ -28,6 +28,22 @@ const VariableValue &
 NeighborCoupleable::coupledNeighborValue(const std::string & var_name, unsigned int comp)
 {
   MooseVariable * var = getVar(var_name, comp);
+
+  if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+  {
+    if (_neighbor_nodal)
+      return var->nodalVectorTagValueNeighbor(_nl_tag_id);
+    else
+      return var->vectorTagValueNeighbor(_nl_tag_id);
+  }
+  else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+  {
+    if (_neighbor_nodal)
+      return var->nodalVectorTagValueNeighbor(_aux_tag_id);
+    else
+      return var->vectorTagValueNeighbor(_aux_tag_id);
+  }
+
   if (_neighbor_nodal)
     return (_c_is_implicit) ? var->dofValuesNeighbor() : var->dofValuesOldNeighbor();
   else
@@ -95,6 +111,11 @@ NeighborCoupleable::coupledNeighborGradient(const std::string & var_name, unsign
     mooseError("Nodal variables do not have gradients");
 
   MooseVariable * var = getVar(var_name, comp);
+  if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+    return var->vectorTagGradSlnNeighbor(_nl_tag_id);
+  else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+    return var->vectorTagGradSlnNeighbor(_aux_tag_id);
+
   return (_c_is_implicit) ? var->gradSlnNeighbor() : var->gradSlnOldNeighbor();
 }
 
@@ -167,6 +188,12 @@ NeighborCoupleable::coupledNeighborSecond(const std::string & var_name, unsigned
     mooseError("Nodal variables do not have second derivatives");
 
   MooseVariable * var = getVar(var_name, comp);
+
+  if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+    return var->vectorTagSecondSlnNeighbor(_nl_tag_id);
+  else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+    return var->vectorTagSecondSlnNeighbor(_aux_tag_id);
+
   return (_c_is_implicit) ? var->secondSlnNeighbor() : var->secondSlnOldNeighbor();
 }
 

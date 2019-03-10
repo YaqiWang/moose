@@ -21,9 +21,6 @@ Coupleable::Coupleable(const MooseObject * moose_object, bool nodal)
     _c_name(_c_parameters.get<std::string>("_object_name")),
     _c_fe_problem(*_c_parameters.getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _c_nodal(nodal),
-    _c_is_implicit(_c_parameters.have_parameter<bool>("implicit")
-                       ? _c_parameters.get<bool>("implicit")
-                       : true),
     _c_tid(_c_parameters.get<THREAD_ID>("_tid")),
     _zero(_c_fe_problem._zero[_c_tid]),
     _ad_zero(_c_fe_problem._ad_zero[_c_tid]),
@@ -40,6 +37,54 @@ Coupleable::Coupleable(const MooseObject * moose_object, bool nodal)
     _coupleable_max_qps(_c_fe_problem.getMaxQps())
 {
   SubProblem & problem = *_c_parameters.getCheckedPointerParam<SubProblem *>("_subproblem");
+
+  // make sure the coupled tags are not included in residual vector tags
+  if (_c_parameters.have_parameter<std::vector<TagName>>("extra_vector_tags"))
+  {
+    auto nl_tag_name = MooseUtils::toUpper(_c_parameters.get<TagName>("nonlinear_vector_tag"));
+    auto tag_names = _c_parameters.get<std::vector<TagName>>("extra_vector_tags");
+    for (auto & tag_name : tag_names)
+    {
+      auto tag_name_upper = MooseUtils::toUpper(tag_name);
+      if (tag_name_upper == nl_tag_name)
+        mooseError(tag_name, " cannot be coupled into ", moose_object->type(), " in ", _c_name);
+    }
+  }
+
+  _c_is_implicit = true;
+  _has_nl_tag = false;
+  _has_aux_tag = false;
+  bool has_ti_params = _c_parameters.have_parameter<TagName>("implicit");
+  if (has_ti_params)
+  {
+    // honor users' setting of implicit parameter
+    if (_c_parameters.isParamSetByUser("implicit"))
+    {
+      _c_is_implicit = _c_parameters.get<bool>("implicit");
+      if (_c_parameters.isParamSetByUser("nonlinear_vector_tag") ||
+          _c_parameters.isParamSetByUser("auxiliary_vector_tag"))
+        mooseError("When implicit parameter is set, both nonlinear_vector_tag and "
+                   "auxiliary_vector_tag cannot be set");
+    }
+
+    // when users set nonlinear_vector_tag, use the tagged vector for the coupled variables
+    if (_c_parameters.isParamSetByUser("nonlinear_vector_tag"))
+    {
+      auto tagname = MooseUtils::toUpper(_c_parameters.get<TagName>("nonlinear_vector_tag"));
+      _has_nl_tag = true;
+      _nl_tag_id = problem.getVectorTagID(tagname);
+      addFEVariableCoupleableVectorTag(_nl_tag_id);
+    }
+
+    // when users set auxiliary_vector_tag, use the tagged vector for the coupled variables
+    if (_c_parameters.isParamSetByUser("auxiliary_vector_tag"))
+    {
+      auto tagname = MooseUtils::toUpper(_c_parameters.get<TagName>("auxiliary_vector_tag"));
+      _has_aux_tag = true;
+      _aux_tag_id = problem.getVectorTagID(tagname);
+      addFEVariableCoupleableVectorTag(_aux_tag_id);
+    }
+  }
 
   unsigned int optional_var_index_counter = 0;
   // Coupling
@@ -379,6 +424,21 @@ Coupleable::coupledValue(const std::string & var_name, unsigned int comp)
 
   if (!_coupleable_neighbor)
   {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+    {
+      if (_c_nodal)
+        return var->nodalVectorTagValue(_nl_tag_id);
+      else
+        return var->vectorTagValue(_nl_tag_id);
+    }
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+    {
+      if (_c_nodal)
+        return var->nodalVectorTagValue(_aux_tag_id);
+      else
+        return var->vectorTagValue(_aux_tag_id);
+    }
+
     if (_c_nodal)
       return (_c_is_implicit) ? var->dofValues() : var->dofValuesOld();
     else
@@ -386,6 +446,21 @@ Coupleable::coupledValue(const std::string & var_name, unsigned int comp)
   }
   else
   {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+    {
+      if (_c_nodal)
+        return var->nodalVectorTagValueNeighbor(_nl_tag_id);
+      else
+        return var->vectorTagValueNeighbor(_nl_tag_id);
+    }
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+    {
+      if (_c_nodal)
+        return var->nodalVectorTagValueNeighbor(_aux_tag_id);
+      else
+        return var->vectorTagValueNeighbor(_aux_tag_id);
+    }
+
     if (_c_nodal)
       return (_c_is_implicit) ? var->dofValuesNeighbor() : var->dofValuesOldNeighbor();
     else
@@ -443,23 +518,16 @@ Coupleable::coupledVectorValue(const std::string & var_name, unsigned int comp)
   VectorMooseVariable * var = getVectorVar(var_name, comp);
   if (var == NULL)
     mooseError("Call coupledValue for coupled regular variables");
+  if (_c_nodal)
+    mooseError("Vector variables are not required to be continuous and so should not be used "
+               "with nodal compute objects");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Vector variables do not support tagging");
 
   if (!_coupleable_neighbor)
-  {
-    if (_c_nodal)
-      mooseError("Vector variables are not required to be continuous and so should not be used "
-                 "with nodal compute objects");
-    else
-      return (_c_is_implicit) ? var->sln() : var->slnOld();
-  }
+    return (_c_is_implicit) ? var->sln() : var->slnOld();
   else
-  {
-    if (_c_nodal)
-      mooseError("Vector variables are not required to be continuous and so should not be used "
-                 "with nodal compute objects");
-    else
-      return (_c_is_implicit) ? var->slnNeighbor() : var->slnOldNeighbor();
-  }
+    return (_c_is_implicit) ? var->slnNeighbor() : var->slnOldNeighbor();
 }
 
 VariableValue &
@@ -558,6 +626,8 @@ Coupleable::coupledValuePreviousNL(const std::string & var_name, unsigned int co
   MooseVariable * var = getVar(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding vector variable method");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in coupledValuePreviousNL");
 
   if (!_coupleable_neighbor)
   {
@@ -949,9 +1019,23 @@ Coupleable::coupledGradient(const std::string & var_name, unsigned int comp)
     mooseError("Call corresponding vector variable method");
 
   if (!_coupleable_neighbor)
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagGradSln(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagGradSln(_aux_tag_id);
+
     return (_c_is_implicit) ? var->gradSln() : var->gradSlnOld();
+  }
   else
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagGradSlnNeighbor(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagGradSlnNeighbor(_aux_tag_id);
+
     return (_c_is_implicit) ? var->gradSlnNeighbor() : var->gradSlnOldNeighbor();
+  }
 }
 
 const VariableGradient &
@@ -1014,6 +1098,8 @@ Coupleable::coupledGradientPreviousNL(const std::string & var_name, unsigned int
   coupledCallback(var_name, true);
   if (_c_nodal)
     mooseError(_c_name, ": Nodal compute objects do not support gradients");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in coupledGradientPreviousNL");
 
   MooseVariable * var = getVar(var_name, comp);
   if (var == NULL)
@@ -1032,6 +1118,7 @@ Coupleable::coupledGradientDot(const std::string & var_name, unsigned int comp)
   if (!isCoupled(var_name)) // Return default 0
     return _default_gradient;
 
+  validateExecutionerType(var_name, "coupledGradientDot");
   coupledCallback(var_name, false);
   if (_c_nodal)
     mooseError(_c_name, ": Nodal variables do not have gradients");
@@ -1053,6 +1140,7 @@ Coupleable::coupledGradientDotDot(const std::string & var_name, unsigned int com
   if (!isCoupled(var_name)) // Return default 0
     return _default_gradient;
 
+  validateExecutionerType(var_name, "coupledGradientDotDot");
   coupledCallback(var_name, false);
   if (_c_nodal)
     mooseError(_c_name, ": Nodal variables do not have gradients");
@@ -1081,6 +1169,8 @@ Coupleable::coupledVectorGradient(const std::string & var_name, unsigned int com
   VectorMooseVariable * var = getVectorVar(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding standard variable method");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Vector variables do not support tagging");
 
   if (!_coupleable_neighbor)
     return (_c_is_implicit) ? var->gradSln() : var->gradSlnOld();
@@ -1150,6 +1240,8 @@ Coupleable::coupledCurl(const std::string & var_name, unsigned int comp)
   VectorMooseVariable * var = getVectorVar(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding scalar field variable method");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Vector variables do not support tagging");
 
   if (!_coupleable_neighbor)
     return (_c_is_implicit) ? var->curlSln() : var->curlSlnOld();
@@ -1220,9 +1312,23 @@ Coupleable::coupledSecond(const std::string & var_name, unsigned int comp)
     mooseError("Call corresponding vector variable method");
 
   if (!_coupleable_neighbor)
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagSecondSln(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagSecondSln(_aux_tag_id);
+
     return (_c_is_implicit) ? var->secondSln() : var->secondSlnOlder();
+  }
   else
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagSecondSlnNeighbor(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagSecondSlnNeighbor(_aux_tag_id);
+
     return (_c_is_implicit) ? var->secondSlnNeighbor() : var->secondSlnOlderNeighbor();
+  }
 }
 
 const VariableSecond &
@@ -1240,6 +1346,7 @@ Coupleable::coupledSecondOld(const std::string & var_name, unsigned int comp)
   MooseVariable * var = getVar(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding vector variable method");
+
   if (!_coupleable_neighbor)
     return (_c_is_implicit) ? var->secondSlnOld() : var->secondSlnOlder();
   else
@@ -1261,6 +1368,7 @@ Coupleable::coupledSecondOlder(const std::string & var_name, unsigned int comp)
   MooseVariable * var = getVar(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding vector variable method");
+
   if (_c_is_implicit)
   {
     if (!_coupleable_neighbor)
@@ -1283,6 +1391,8 @@ Coupleable::coupledSecondPreviousNL(const std::string & var_name, unsigned int c
   coupledCallback(var_name, true);
   if (_c_nodal)
     mooseError(_c_name, ": Nodal variables do not have second derivatives");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in coupledSecondPreviousNL");
 
   MooseVariable * var = getVar(var_name, comp);
   if (var == NULL)
@@ -1310,11 +1420,27 @@ Coupleable::coupledNodalValue(const std::string & var_name, unsigned int comp)
                ": Trying to get nodal values of variable '",
                var->name(),
                "', but it is not nodal.");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in coupledNodalValue");
 
   if (!_coupleable_neighbor)
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagNodalValue(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagNodalValue(_aux_tag_id);
+
     return (_c_is_implicit) ? var->nodalValue() : var->nodalValueOld();
+  }
   else
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagNodalValueNeighbor(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagNodalValueNeighbor(_aux_tag_id);
+
     return (_c_is_implicit) ? var->nodalValueNeighbor() : var->nodalValueOldNeighbor();
+  }
 }
 
 template <typename T>
@@ -1384,6 +1510,8 @@ Coupleable::coupledNodalValuePreviousNL(const std::string & var_name, unsigned i
   MooseVariableFE<T> * var = getVarHelper<T>(var_name, comp);
   if (var == NULL)
     mooseError("Call corresponding vector variable method");
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in coupledNodalValuePreviousNL");
 
   if (!_coupleable_neighbor)
     return var->nodalValuePreviousNL();
@@ -1478,12 +1606,26 @@ Coupleable::coupledDofValues(const std::string & var_name, unsigned int comp)
     return *getDefaultValue(var_name, comp);
 
   coupledCallback(var_name, false);
-  MooseVariableFEBase * var = getFEVar(var_name, comp);
+  MooseVariable * var = getVar(var_name, comp);
 
   if (!_coupleable_neighbor)
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagDofValues(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagDofValues(_aux_tag_id);
+
     return (_c_is_implicit) ? var->dofValues() : var->dofValuesOld();
+  }
   else
+  {
+    if (_has_nl_tag && var->kind() == Moose::VAR_NONLINEAR)
+      return var->vectorTagDofValuesNeighbor(_nl_tag_id);
+    else if (_has_aux_tag && var->kind() == Moose::VAR_AUXILIARY)
+      return var->vectorTagDofValuesNeighbor(_aux_tag_id);
+
     return (_c_is_implicit) ? var->dofValuesNeighbor() : var->dofValuesOldNeighbor();
+  }
 }
 
 const VariableValue &
@@ -1529,6 +1671,8 @@ Coupleable::coupledDofValuesOlder(const std::string & var_name, unsigned int com
 void
 Coupleable::validateExecutionerType(const std::string & name, const std::string & fn_name) const
 {
+  if (_has_nl_tag || _has_aux_tag)
+    mooseError("Tagging variables cannot be used in ", fn_name);
   if (!_c_fe_problem.isTransient())
     mooseError(_c_name,
                ": Calling '",

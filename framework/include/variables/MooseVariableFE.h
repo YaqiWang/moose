@@ -222,6 +222,11 @@ public:
     _need_u_previous_nl = true;
     return _u_previous_nl;
   }
+  const FieldVariableGradient & vectorTagGradSln(TagID tag)
+  {
+    _need_vector_tag_grad_u[tag] = true;
+    return _vector_tag_grad_u[tag];
+  }
   const FieldVariableGradient & gradSln() { return _grad_u; }
   const FieldVariableGradient & gradSlnOld()
   {
@@ -260,6 +265,13 @@ public:
       mooseError("MooseVariableFE: Second time derivative of solution (`u_dotdot`) is not stored. "
                  "Please set uDotDotRequested() to true in FEProblemBase before requesting "
                  "`u_dotdot`.");
+  }
+  const FieldVariableSecond & vectorTagSecondSln(TagID tag)
+  {
+    _need_vector_tag_second_u[tag] = true;
+    secondPhi();
+    secondPhiFace();
+    return _vector_tag_second_u[tag];
   }
   const FieldVariableSecond & secondSln()
   {
@@ -433,6 +445,11 @@ public:
     return _neighbor_ad_u_dot;
   }
 
+  const FieldVariableValue & vectorTagValueNeighbor(TagID tag)
+  {
+    _need_vector_tag_u_neighbor[tag] = true;
+    return _vector_tag_u_neighbor[tag];
+  }
   const FieldVariableValue & slnNeighbor() { return _u_neighbor; }
   const FieldVariableValue & slnOldNeighbor()
   {
@@ -448,6 +465,11 @@ public:
   {
     _need_u_previous_nl_neighbor = true;
     return _u_previous_nl_neighbor;
+  }
+  const FieldVariableGradient & vectorTagGradSlnNeighbor(TagID tag)
+  {
+    _need_vector_tag_grad_u_neighbor[tag] = true;
+    return _vector_tag_grad_u_neighbor[tag];
   }
   const FieldVariableGradient & gradSlnNeighbor() { return _grad_u_neighbor; }
   const FieldVariableGradient & gradSlnOldNeighbor()
@@ -487,6 +509,12 @@ public:
       mooseError("MooseVariableFE: Second time derivative of solution (`u_dotdot`) is not stored. "
                  "Please set uDotDotRequested() to true in FEProblemBase before requesting "
                  "`u_dotdot`.");
+  }
+  const FieldVariableSecond & vectorTagSecondSlnNeighbor(TagID tag)
+  {
+    _need_vector_tag_second_u_neighbor[tag] = true;
+    secondPhiFaceNeighbor();
+    return _vector_tag_second_u_neighbor[tag];
   }
   const FieldVariableSecond & secondSlnNeighbor()
   {
@@ -634,11 +662,13 @@ public:
   void insert(NumericVector<Number> & residual) override;
   void add(NumericVector<Number> & residual);
 
+  const MooseArray<Number> & vectorTagDofValues(TagID tag);
   const MooseArray<Number> & dofValue() override;
   const MooseArray<Number> & dofValues() override;
   const MooseArray<Number> & dofValuesOld() override;
   const MooseArray<Number> & dofValuesOlder() override;
   const MooseArray<Number> & dofValuesPreviousNL() override;
+  const MooseArray<Number> & vectorTagDofValuesNeighbor(TagID tag);
   const MooseArray<Number> & dofValuesNeighbor() override;
   const MooseArray<Number> & dofValuesOldNeighbor() override;
   const MooseArray<Number> & dofValuesOlderNeighbor() override;
@@ -733,7 +763,10 @@ public:
   const OutputType & nodalValueDuDotDotDuNeighbor();
 
   const MooseArray<Real> & nodalVectorTagValue(TagID tag);
+  const MooseArray<Real> & nodalVectorTagValueNeighbor(TagID tag);
   const MooseArray<Real> & nodalMatrixTagValue(TagID tag);
+  const OutputType & vectorTagNodalValue(TagID tag);
+  const OutputType & vectorTagNodalValueNeighbor(TagID tag);
 
   template <ComputeStage compute_stage>
   const typename Moose::ValueType<OutputType, compute_stage>::type & adNodalValue();
@@ -761,6 +794,7 @@ public:
    * basis families
    */
   void assignNodalValue(const Real & value, const unsigned int & component);
+  void assignNodalValue(const Real & value, const TagID & tag, const unsigned int & component);
   void assignADNodalValue(const DualReal & value, const unsigned int & component);
   void assignNodalValueOld(const Real & value, const unsigned int & component);
   void assignNodalValueOlder(const Real & value, const unsigned int & component);
@@ -770,6 +804,8 @@ public:
   void assignNodalValueDotDot(const Real & value, const unsigned int & component);
   void assignNodalValueDotDotOld(const Real & value, const unsigned int & component);
   void assignNeighborNodalValue(const Real & value, const unsigned int & component);
+  void
+  assignNeighborNodalValue(const Real & value, const TagID & tag, const unsigned int & component);
   void assignNeighborNodalValueOld(const Real & value, const unsigned int & component);
   void assignNeighborNodalValueOlder(const Real & value, const unsigned int & component);
   void assignNeighborNodalValuePreviousNL(const Real & value, const unsigned int & component);
@@ -971,6 +1007,21 @@ protected:
   std::vector<bool> _need_vector_tag_u;
   std::vector<FieldVariableValue> _matrix_tag_u;
   std::vector<bool> _need_matrix_tag_u;
+  std::vector<FieldVariableGradient> _vector_tag_grad_u;
+  std::vector<bool> _need_vector_tag_grad_u;
+  std::vector<FieldVariableSecond> _vector_tag_second_u;
+  std::vector<bool> _need_vector_tag_second_u;
+
+  std::vector<MooseArray<Real>> _vector_tags_dof_u_neighbor;
+  std::vector<bool> _need_vector_tag_dof_u_neighbor;
+  std::vector<FieldVariableValue> _vector_tag_u_neighbor;
+  std::vector<bool> _need_vector_tag_u_neighbor;
+  std::vector<FieldVariableValue> _matrix_tag_u_neighbor;
+  std::vector<bool> _need_matrix_tag_u_neighbor;
+  std::vector<FieldVariableGradient> _vector_tag_grad_u_neighbor;
+  std::vector<bool> _need_vector_tag_grad_u_neighbor;
+  std::vector<FieldVariableSecond> _vector_tag_second_u_neighbor;
+  std::vector<bool> _need_vector_tag_second_u_neighbor;
 
   FieldVariableValue _u;
   FieldVariableValue _u_old;
@@ -1072,6 +1123,9 @@ protected:
   OutputType _nodal_value_dot_old;
   /// nodal values of u_dotdot_old
   OutputType _nodal_value_dotdot_old;
+
+  std::vector<OutputType> _tag_nodal_value;
+  std::vector<OutputType> _tag_nodal_value_neighbor;
 
   /// AD nodal value
   typename Moose::ValueType<OutputType, JACOBIAN>::type _ad_nodal_value;
