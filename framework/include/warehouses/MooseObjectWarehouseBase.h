@@ -150,6 +150,36 @@ public:
                                        THREAD_ID tid = 0) const;
   ///@}
 
+  ///@{
+  /**
+   * Update vector tag dependency vector.
+   */
+  void updateVectorTagDependency(std::set<TagID> & needed_vector_tags, THREAD_ID tid = 0) const;
+  void updateBlockVectorTagDependency(SubdomainID id,
+                                      std::set<TagID> & needed_vector_tags,
+                                      THREAD_ID tid = 0) const;
+  void updateBoundaryVectorTagDependency(std::set<TagID> & needed_vector_tags,
+                                         THREAD_ID tid = 0) const;
+  void updateBoundaryVectorTagDependency(BoundaryID id,
+                                         std::set<TagID> & needed_vector_tags,
+                                         THREAD_ID tid = 0) const;
+  ///@}
+
+  ///@{
+  /**
+   * Update matrix tag dependency vector.
+   */
+  void updateMatrixTagDependency(std::set<TagID> & needed_matrix_tags, THREAD_ID tid = 0) const;
+  void updateBlockMatrixTagDependency(SubdomainID id,
+                                      std::set<TagID> & needed_matrix_tags,
+                                      THREAD_ID tid = 0) const;
+  void updateBoundaryMatrixTagDependency(std::set<TagID> & needed_matrix_tags,
+                                         THREAD_ID tid = 0) const;
+  void updateBoundaryMatrixTagDependency(BoundaryID id,
+                                         std::set<TagID> & needed_matrix_tags,
+                                         THREAD_ID tid = 0) const;
+  ///@}
+
   /**
    * Populates a set of covered subdomains and the associated variable names.
    */
@@ -206,6 +236,18 @@ protected:
    */
   static void updateMatPropDependencyHelper(std::set<unsigned int> & needed_mat_props,
                                             const std::vector<std::shared_ptr<T>> & objects);
+
+  /**
+   * Helper method for updating vector tag dependency vector
+   */
+  static void updateVectorTagDependencyHelper(std::set<TagID> & needed_vector_tags,
+                                              const std::vector<std::shared_ptr<T>> & objects);
+
+  /**
+   * Helper method for updating matrix tag dependency vector
+   */
+  static void updateMatrixTagDependencyHelper(std::set<TagID> & needed_matrix_tags,
+                                              const std::vector<std::shared_ptr<T>> & objects);
 
   /**
    * Calls assert on thread id.
@@ -653,6 +695,114 @@ MooseObjectWarehouseBase<T>::updateMatPropDependencyHelper(
   {
     auto & mp_deps = object->getMatPropDependencies();
     needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
+  }
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateVectorTagDependency(std::set<TagID> & needed_vector_tags,
+                                                       THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveObjects(tid))
+    updateVectorTagDependencyHelper(needed_vector_tags, _all_objects[tid]);
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBlockVectorTagDependency(SubdomainID id,
+                                                            std::set<TagID> & needed_vector_tags,
+                                                            THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBlockObjects(id, tid))
+    updateVectorTagDependencyHelper(needed_vector_tags, getActiveBlockObjects(id, tid));
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBoundaryVectorTagDependency(std::set<TagID> & needed_vector_tags,
+                                                               THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBoundaryObjects(tid))
+  {
+    typename std::map<BoundaryID, std::vector<std::shared_ptr<T>>>::const_iterator it;
+    for (const auto & object_pair : _active_boundary_objects[tid])
+      updateVectorTagDependencyHelper(needed_vector_tags, object_pair.second);
+  }
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBoundaryVectorTagDependency(BoundaryID id,
+                                                               std::set<TagID> & needed_vector_tags,
+                                                               THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBoundaryObjects(id, tid))
+    updateVectorTagDependencyHelper(needed_vector_tags, getActiveBoundaryObjects(id, tid));
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateVectorTagDependencyHelper(
+    std::set<TagID> & needed_vector_tags, const std::vector<std::shared_ptr<T>> & objects)
+{
+  for (const auto & object : objects)
+  {
+    const auto & mv_deps = object->getFEVariableCoupleableVectorTags();
+    needed_vector_tags.insert(mv_deps.begin(), mv_deps.end());
+  }
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateMatrixTagDependency(std::set<TagID> & needed_matrix_tags,
+                                                       THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveObjects(tid))
+    updateMatrixTagDependencyHelper(needed_matrix_tags, _all_objects[tid]);
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBlockMatrixTagDependency(SubdomainID id,
+                                                            std::set<TagID> & needed_matrix_tags,
+                                                            THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBlockObjects(id, tid))
+    updateMatrixTagDependencyHelper(needed_matrix_tags, getActiveBlockObjects(id, tid));
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBoundaryMatrixTagDependency(std::set<TagID> & needed_matrix_tags,
+                                                               THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBoundaryObjects(tid))
+  {
+    typename std::map<BoundaryID, std::vector<std::shared_ptr<T>>>::const_iterator it;
+    for (const auto & object_pair : _active_boundary_objects[tid])
+      updateMatrixTagDependencyHelper(needed_matrix_tags, object_pair.second);
+  }
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateBoundaryMatrixTagDependency(BoundaryID id,
+                                                               std::set<TagID> & needed_matrix_tags,
+                                                               THREAD_ID tid /* = 0*/) const
+{
+  if (hasActiveBoundaryObjects(id, tid))
+    updateMatrixTagDependencyHelper(needed_matrix_tags, getActiveBoundaryObjects(id, tid));
+}
+
+template <typename T>
+void
+MooseObjectWarehouseBase<T>::updateMatrixTagDependencyHelper(
+    std::set<TagID> & needed_matrix_tags, const std::vector<std::shared_ptr<T>> & objects)
+{
+  for (const auto & object : objects)
+  {
+    const auto & mv_deps = object->getFEVariableCoupleableVectorTags();
+    needed_matrix_tags.insert(mv_deps.begin(), mv_deps.end());
   }
 }
 
