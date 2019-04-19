@@ -25,6 +25,7 @@
 #include "libmesh/dense_vector.h"
 #include "libmesh/dense_vector.h"
 #include "libmesh/tensor_tools.h"
+#include "libmesh/petsc_vector.h"
 
 class TimeIntegrator;
 
@@ -32,33 +33,55 @@ class TimeIntegrator;
  * Class for stuff related to variables
  *
  * Each variable can compute nodal or elemental (at QPs) values.
+ *
+ * OutputType          OutputShape           OutputData
+ * ----------------------------------------------------
+ * Real                Real                  Real
+ * RealVectorValue     RealVectorValue       Real
+ * RealArrayValue      Real                  RealArrayValue
+ *
  */
 template <typename OutputType>
 class MooseVariableFE : public MooseVariableFEBase
 {
-  typedef OutputType OutputShape;
-  typedef OutputType OutputValue;
-  typedef typename TensorTools::IncrementRank<OutputShape>::type OutputGradient;
+  // type for gradient, second and divergence of template class OutputType
+  typedef typename TensorTools::IncrementRank<OutputType>::type OutputGradient;
   typedef typename TensorTools::IncrementRank<OutputGradient>::type OutputSecond;
-  typedef typename TensorTools::DecrementRank<OutputShape>::type OutputDivergence;
+  typedef typename TensorTools::DecrementRank<OutputType>::type OutputDivergence;
 
-  typedef MooseArray<OutputShape> FieldVariableValue;
+  // shortcut for types storing values on quadrature points
+  typedef MooseArray<OutputType> FieldVariableValue;
   typedef MooseArray<OutputGradient> FieldVariableGradient;
   typedef MooseArray<OutputSecond> FieldVariableSecond;
-  typedef MooseArray<OutputShape> FieldVariableCurl;
+  typedef MooseArray<OutputType> FieldVariableCurl;
   typedef MooseArray<OutputDivergence> FieldVariableDivergence;
 
-  typedef MooseArray<std::vector<OutputShape>> FieldVariablePhiValue;
-  typedef MooseArray<std::vector<OutputGradient>> FieldVariablePhiGradient;
-  typedef MooseArray<std::vector<OutputSecond>> FieldVariablePhiSecond;
-  typedef MooseArray<std::vector<OutputShape>> FieldVariablePhiCurl;
-  typedef MooseArray<std::vector<OutputDivergence>> FieldVariablePhiDivergence;
+  // shape function type for the template class OutputType
+  typedef typename Moose::ShapeType<OutputType>::type OutputShape;
 
+  // type for gradient, second and divergence of shape functions of template class OutputType
+  typedef typename TensorTools::IncrementRank<OutputShape>::type OutputShapeGradient;
+  typedef typename TensorTools::IncrementRank<OutputShapeGradient>::type OutputShapeSecond;
+  typedef typename TensorTools::DecrementRank<OutputShape>::type OutputShapeDivergence;
+
+  // shortcut for types storing shape function values on quadrature points
+  typedef MooseArray<std::vector<OutputShape>> FieldVariablePhiValue;
+  typedef MooseArray<std::vector<OutputShapeGradient>> FieldVariablePhiGradient;
+  typedef MooseArray<std::vector<OutputShapeSecond>> FieldVariablePhiSecond;
+  typedef MooseArray<std::vector<OutputShape>> FieldVariablePhiCurl;
+  typedef MooseArray<std::vector<OutputShapeDivergence>> FieldVariablePhiDivergence;
+
+  // shortcut for types storing test function values on quadrature points
+  // Note: here we assume the types are the same as of shape functions.
   typedef MooseArray<std::vector<OutputShape>> FieldVariableTestValue;
-  typedef MooseArray<std::vector<OutputGradient>> FieldVariableTestGradient;
-  typedef MooseArray<std::vector<OutputSecond>> FieldVariableTestSecond;
+  typedef MooseArray<std::vector<OutputShapeGradient>> FieldVariableTestGradient;
+  typedef MooseArray<std::vector<OutputShapeSecond>> FieldVariableTestSecond;
   typedef MooseArray<std::vector<OutputShape>> FieldVariableTestCurl;
-  typedef MooseArray<std::vector<OutputDivergence>> FieldVariableTestDivergence;
+  typedef MooseArray<std::vector<OutputShapeDivergence>> FieldVariableTestDivergence;
+
+  // DoF value type for the template class OutputType
+  typedef typename Moose::DOFType<OutputType>::type OutputData;
+  typedef MooseArray<OutputData> DoFValue;
 
 public:
   MooseVariableFE(unsigned int var_num,
@@ -66,7 +89,8 @@ public:
                   SystemBase & sys,
                   Assembly & assembly,
                   Moose::VarKindType var_kind,
-                  THREAD_ID tid);
+                  THREAD_ID tid,
+                  unsigned int count = 1);
   virtual ~MooseVariableFE();
 
   void clearDofIndices() override;
@@ -135,6 +159,7 @@ public:
   bool activeOnSubdomain(SubdomainID subdomain) const override;
 
   bool isNodal() const override { return _is_nodal; }
+  Moose::VarFieldType fieldType() const override;
   bool isVector() const override;
   const Node *& node() const { return _node; }
   virtual dof_id_type & nodalDofIndex() override { return _nodal_dof_index; }
@@ -618,13 +643,41 @@ public:
   virtual void computeNeighborValuesFace() override;
   virtual void computeNeighborValues() override;
   void setNodalValue(OutputType value, unsigned int idx = 0);
-  void setDofValues(const DenseVector<Number> & value) override;
-  Number getNodalValue(const Node & node) override;
-  Number getNodalValueOld(const Node & node) override;
-  Number getNodalValueOlder(const Node & node) override;
-  Number getElementalValue(const Elem * elem, unsigned int idx = 0) const override;
-  Number getElementalValueOld(const Elem * elem, unsigned int idx = 0) const override;
-  Number getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const override;
+  void setDofValues(const DenseVector<OutputData> & value);
+
+  /**
+   * Get the value of this variable at given node
+   */
+  OutputData getNodalValue(const Node & node);
+  /**
+   * Get the old value of this variable at given node
+   */
+  OutputData getNodalValueOld(const Node & node);
+  /**
+   * Get the t-2 value of this variable at given node
+   */
+  OutputData getNodalValueOlder(const Node & node);
+  /**
+   * Get the current value of this variable on an element
+   * @param[in] elem   Element at which to get value
+   * @param[in] idx    Local index of this variable's element DoFs
+   * @return Variable value
+   */
+  OutputData getElementalValue(const Elem * elem, unsigned int idx = 0) const;
+  /**
+   * Get the old value of this variable on an element
+   * @param[in] elem   Element at which to get value
+   * @param[in] idx    Local index of this variable's element DoFs
+   * @return Variable value
+   */
+  OutputData getElementalValueOld(const Elem * elem, unsigned int idx = 0) const;
+  /**
+   * Get the older value of this variable on an element
+   * @param[in] elem   Element at which to get value
+   * @param[in] idx    Local index of this variable's element DoFs
+   * @return Variable value
+   */
+  OutputData getElementalValueOlder(const Elem * elem, unsigned int idx = 0) const;
 
   void getDofIndices(const Elem * elem, std::vector<dof_id_type> & dof_indices) override;
   std::vector<dof_id_type> & dofIndicesNeighbor() override { return _dof_indices_neighbor; }
@@ -633,27 +686,27 @@ public:
   void insert(NumericVector<Number> & residual) override;
   void add(NumericVector<Number> & residual) override;
 
-  const MooseArray<Number> & dofValue() override;
-  const MooseArray<Number> & dofValues() override;
-  const MooseArray<Number> & dofValuesOld() override;
-  const MooseArray<Number> & dofValuesOlder() override;
-  const MooseArray<Number> & dofValuesPreviousNL() override;
-  const MooseArray<Number> & dofValuesNeighbor() override;
-  const MooseArray<Number> & dofValuesOldNeighbor() override;
-  const MooseArray<Number> & dofValuesOlderNeighbor() override;
-  const MooseArray<Number> & dofValuesPreviousNLNeighbor() override;
-  const MooseArray<Number> & dofValuesDot() override;
-  const MooseArray<Number> & dofValuesDotNeighbor() override;
-  const MooseArray<Number> & dofValuesDotOld() override;
-  const MooseArray<Number> & dofValuesDotOldNeighbor() override;
-  const MooseArray<Number> & dofValuesDotDot() override;
-  const MooseArray<Number> & dofValuesDotDotNeighbor() override;
-  const MooseArray<Number> & dofValuesDotDotOld() override;
-  const MooseArray<Number> & dofValuesDotDotOldNeighbor() override;
-  const MooseArray<Number> & dofValuesDuDotDu() override;
-  const MooseArray<Number> & dofValuesDuDotDuNeighbor() override;
-  const MooseArray<Number> & dofValuesDuDotDotDu() override;
-  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor() override;
+  const DoFValue & dofValue();
+  const DoFValue & dofValues();
+  const DoFValue & dofValuesOld();
+  const DoFValue & dofValuesOlder();
+  const DoFValue & dofValuesPreviousNL();
+  const DoFValue & dofValuesNeighbor();
+  const DoFValue & dofValuesOldNeighbor();
+  const DoFValue & dofValuesOlderNeighbor();
+  const DoFValue & dofValuesPreviousNLNeighbor();
+  const DoFValue & dofValuesDot();
+  const DoFValue & dofValuesDotNeighbor();
+  const DoFValue & dofValuesDotOld();
+  const DoFValue & dofValuesDotOldNeighbor();
+  const DoFValue & dofValuesDotDot();
+  const DoFValue & dofValuesDotDotNeighbor();
+  const DoFValue & dofValuesDotDotOld();
+  const DoFValue & dofValuesDotDotOldNeighbor();
+  const MooseArray<Number> & dofValuesDuDotDu();
+  const MooseArray<Number> & dofValuesDuDotDuNeighbor();
+  const MooseArray<Number> & dofValuesDuDotDotDu();
+  const MooseArray<Number> & dofValuesDuDotDotDuNeighbor();
 
   /**
    * Return the AD dof values
@@ -677,7 +730,7 @@ public:
    * @param phi Evaluated shape functions at a point
    * @return The variable value
    */
-  OutputType getValue(const Elem * elem, const std::vector<std::vector<OutputType>> & phi) const;
+  OutputType getValue(const Elem * elem, const std::vector<std::vector<OutputShape>> & phi) const;
 
   /**
    * Compute the variable gradient value at a point on an element
@@ -685,10 +738,10 @@ public:
    * @param phi Evaluated shape functions at a point
    * @return The variable gradient value
    */
-  typename OutputTools<OutputType>::OutputGradient
-  getGradient(const Elem * elem,
-              const std::vector<std::vector<typename OutputTools<OutputType>::OutputGradient>> &
-                  grad_phi) const;
+  typename OutputTools<OutputType>::OutputGradient getGradient(
+      const Elem * elem,
+      const std::vector<std::vector<typename OutputTools<OutputType>::OutputShapeGradient>> &
+          grad_phi) const;
 
   /**
    * Return phi size
@@ -738,8 +791,8 @@ public:
   const MooseArray<OutputType> & nodalValueOldArray();
   const MooseArray<OutputType> & nodalValueOlderArray();
 
-  const MooseArray<Real> & nodalVectorTagValue(TagID tag);
-  const MooseArray<Real> & nodalMatrixTagValue(TagID tag);
+  const DoFValue & nodalVectorTagValue(TagID tag);
+  const DoFValue & nodalMatrixTagValue(TagID tag);
 
   template <ComputeStage compute_stage>
   const typename Moose::ValueType<OutputType, compute_stage>::type & adNodalValue();
@@ -777,6 +830,65 @@ public:
   void zeroSizeDofValuesNeighbor();
 
 protected:
+  void getArrayDoFValues(const NumericVector<Number> & sol,
+                         unsigned int n,
+                         MooseArray<RealArrayValue> & dof_values)
+  {
+    dof_values.resize(n);
+    if (isNodal())
+    {
+      for (unsigned int i = 0; i < n; ++i)
+      {
+        dof_values[i].resize(_count);
+        auto dof = _dof_indices[i];
+        for (unsigned int j = 0; j < _count; ++j)
+          dof_values[i](j) = sol(dof++);
+      }
+    }
+    else
+    {
+      for (unsigned int i = 0; i < n; ++i)
+      {
+        dof_values[i].resize(_count);
+        auto dof = _dof_indices[i];
+        for (unsigned int j = 0; j < _count; ++j)
+        {
+          dof_values[i](j) = sol(dof);
+          dof += n;
+        }
+      }
+    }
+  }
+  void getArrayDoFValuesNeighbor(const NumericVector<Number> & sol,
+                                 unsigned int n,
+                                 MooseArray<RealArrayValue> & dof_values)
+  {
+    dof_values.resize(n);
+    if (isNodal())
+    {
+      for (unsigned int i = 0; i < n; ++i)
+      {
+        dof_values[i].resize(_count);
+        auto dof = _dof_indices_neighbor[i];
+        for (unsigned int j = 0; j < _count; ++j)
+          dof_values[i](j) = sol(dof++);
+      }
+    }
+    else
+    {
+      for (unsigned int i = 0; i < n; ++i)
+      {
+        dof_values[i].resize(_count);
+        auto dof = _dof_indices_neighbor[i];
+        for (unsigned int j = 0; j < _count; ++j)
+        {
+          dof_values[i](j) = sol(dof);
+          dof += n;
+        }
+      }
+    }
+  }
+
   /// Whether this variable is on the displaced system
   const bool _displaced;
 
@@ -910,39 +1022,39 @@ protected:
 
   // dof solution stuff (which for nodal variables corresponds to values at the nodes)
 
-  MooseArray<Real> _dof_values;
-  MooseArray<Real> _dof_values_old;
-  MooseArray<Real> _dof_values_older;
-  MooseArray<Real> _dof_values_previous_nl;
+  DoFValue _dof_values;
+  DoFValue _dof_values_old;
+  DoFValue _dof_values_older;
+  DoFValue _dof_values_previous_nl;
 
   // Dof values of tagged vectors
-  std::vector<MooseArray<Real>> _vector_tags_dof_u;
+  std::vector<DoFValue> _vector_tags_dof_u;
   // Dof values of the diagonal of tagged matrices
-  std::vector<MooseArray<Real>> _matrix_tags_dof_u;
+  std::vector<DoFValue> _matrix_tags_dof_u;
 
   /// nodal values of u_dot
-  MooseArray<Real> _dof_values_dot;
+  DoFValue _dof_values_dot;
   /// nodal values of u_dotdot
-  MooseArray<Real> _dof_values_dotdot;
+  DoFValue _dof_values_dotdot;
   /// nodal values of u_dot_old
-  MooseArray<Real> _dof_values_dot_old;
+  DoFValue _dof_values_dot_old;
   /// nodal values of u_dotdot_old
-  MooseArray<Real> _dof_values_dotdot_old;
+  DoFValue _dof_values_dotdot_old;
   /// nodal values of derivative of u_dot wrt u
-  MooseArray<Real> _dof_du_dot_du;
+  MooseArray<Number> _dof_du_dot_du;
   /// nodal values of derivative of u_dotdot wrt u
-  MooseArray<Real> _dof_du_dotdot_du;
+  MooseArray<Number> _dof_du_dotdot_du;
 
-  MooseArray<Real> _dof_values_neighbor;
-  MooseArray<Real> _dof_values_old_neighbor;
-  MooseArray<Real> _dof_values_older_neighbor;
-  MooseArray<Real> _dof_values_previous_nl_neighbor;
-  MooseArray<Real> _dof_values_dot_neighbor;
-  MooseArray<Real> _dof_values_dotdot_neighbor;
-  MooseArray<Real> _dof_values_dot_old_neighbor;
-  MooseArray<Real> _dof_values_dotdot_old_neighbor;
-  MooseArray<Real> _dof_du_dot_du_neighbor;
-  MooseArray<Real> _dof_du_dotdot_du_neighbor;
+  DoFValue _dof_values_neighbor;
+  DoFValue _dof_values_old_neighbor;
+  DoFValue _dof_values_older_neighbor;
+  DoFValue _dof_values_previous_nl_neighbor;
+  DoFValue _dof_values_dot_neighbor;
+  DoFValue _dof_values_dotdot_neighbor;
+  DoFValue _dof_values_dot_old_neighbor;
+  DoFValue _dof_values_dotdot_old_neighbor;
+  MooseArray<Number> _dof_du_dot_du_neighbor;
+  MooseArray<Number> _dof_du_dotdot_du_neighbor;
 
   // Shape function values, gradients, second derivatives
   const FieldVariablePhiValue & _phi;

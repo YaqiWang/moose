@@ -20,8 +20,9 @@ MooseVariableFE<OutputType>::MooseVariableFE(unsigned int var_num,
                                              SystemBase & sys,
                                              Assembly & assembly,
                                              Moose::VarKindType var_kind,
-                                             THREAD_ID tid)
-  : MooseVariableFEBase(var_num, fe_type, sys, var_kind, tid),
+                                             THREAD_ID tid,
+                                             unsigned int count)
+  : MooseVariableFEBase(var_num, fe_type, sys, var_kind, tid, count),
     _displaced(dynamic_cast<DisplacedSystem *>(&sys) ? true : false),
     _assembly(assembly),
     _qrule(_assembly.qRule()),
@@ -480,7 +481,7 @@ MooseVariableFE<OutputType>::getDofIndices(const Elem * elem,
 }
 
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getNodalValue(const Node & node)
 {
   mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
@@ -497,8 +498,30 @@ MooseVariableFE<OutputType>::getNodalValue(const Node & node)
   return (*_sys.currentSolution())(dof);
 }
 
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getNodalValue(const Node & node)
+{
+  mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
+
+  // Make sure that the node has DOFs
+  /* Note, this is a reproduction of an assert within libMesh::Node::dof_number, this is done to
+   * produce a better error (see misc/check_error.node_value_off_block) */
+  mooseAssert(node.n_dofs(_sys.number(), _var_num) > 0,
+              "Node " << node.id() << " does not contain any dofs for the "
+                      << _sys.system().variable_name(_var_num) << " variable");
+
+  dof_id_type dof = node.dof_number(_sys.number(), _var_num, 0);
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = (*_sys.currentSolution())(dof++);
+
+  return v;
+}
+
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getNodalValueOld(const Node & node)
 {
   mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
@@ -514,8 +537,30 @@ MooseVariableFE<OutputType>::getNodalValueOld(const Node & node)
   return _sys.solutionOld()(dof);
 }
 
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getNodalValueOld(const Node & node)
+{
+  mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
+
+  // Make sure that the node has DOFs
+  /* Note, this is a reproduction of an assert within libMesh::Node::dof_number, this is done to
+   * produce a better error (see misc/check_error.node_value_off_block) */
+  mooseAssert(node.n_dofs(_sys.number(), _var_num) > 0,
+              "Node " << node.id() << " does not contain any dofs for the "
+                      << _sys.system().variable_name(_var_num) << " variable");
+
+  dof_id_type dof = node.dof_number(_sys.number(), _var_num, 0);
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = _sys.solutionOld()(dof++);
+
+  return v;
+}
+
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getNodalValueOlder(const Node & node)
 {
   mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
@@ -531,8 +576,30 @@ MooseVariableFE<OutputType>::getNodalValueOlder(const Node & node)
   return _sys.solutionOlder()(dof);
 }
 
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getNodalValueOlder(const Node & node)
+{
+  mooseAssert(_subproblem.mesh().isSemiLocal(const_cast<Node *>(&node)), "Node is not Semilocal");
+
+  // Make sure that the node has DOFs
+  /* Note, this is a reproduction of an assert within libMesh::Node::dof_number, this is done to
+   * produce a better error (see misc/check_error.node_value_off_block) */
+  mooseAssert(node.n_dofs(_sys.number(), _var_num) > 0,
+              "Node " << node.id() << " does not contain any dofs for the "
+                      << _sys.system().variable_name(_var_num) << " variable");
+
+  dof_id_type dof = node.dof_number(_sys.number(), _var_num, 0);
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = _sys.solutionOlder()(dof++);
+
+  return v;
+}
+
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getElementalValue(const Elem * elem, unsigned int idx) const
 {
   std::vector<dof_id_type> dof_indices;
@@ -541,8 +608,24 @@ MooseVariableFE<OutputType>::getElementalValue(const Elem * elem, unsigned int i
   return (*_sys.currentSolution())(dof_indices[idx]);
 }
 
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getElementalValue(const Elem * elem, unsigned int idx) const
+{
+  std::vector<dof_id_type> dof_indices;
+  _dof_map.dof_indices(elem, dof_indices, _var_num);
+
+  dof_id_type dof = dof_indices[idx];
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = (*_sys.currentSolution())(dof++);
+
+  return v;
+}
+
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getElementalValueOld(const Elem * elem, unsigned int idx) const
 {
   std::vector<dof_id_type> dof_indices;
@@ -551,14 +634,46 @@ MooseVariableFE<OutputType>::getElementalValueOld(const Elem * elem, unsigned in
   return _sys.solutionOld()(dof_indices[idx]);
 }
 
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getElementalValueOld(const Elem * elem, unsigned int idx) const
+{
+  std::vector<dof_id_type> dof_indices;
+  _dof_map.dof_indices(elem, dof_indices, _var_num);
+
+  dof_id_type dof = dof_indices[idx];
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = _sys.solutionOld()(dof++);
+
+  return v;
+}
+
 template <typename OutputType>
-Number
+typename MooseVariableFE<OutputType>::OutputData
 MooseVariableFE<OutputType>::getElementalValueOlder(const Elem * elem, unsigned int idx) const
 {
   std::vector<dof_id_type> dof_indices;
   _dof_map.dof_indices(elem, dof_indices, _var_num);
 
   return _sys.solutionOlder()(dof_indices[idx]);
+}
+
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getElementalValueOlder(const Elem * elem, unsigned int idx) const
+{
+  std::vector<dof_id_type> dof_indices;
+  _dof_map.dof_indices(elem, dof_indices, _var_num);
+
+  dof_id_type dof = dof_indices[idx];
+
+  RealArrayValue v(_count);
+  for (unsigned int i = 0; i < _count; ++i)
+    v(i) = _sys.solutionOlder()(dof++);
+
+  return v;
 }
 
 template <typename OutputType>
@@ -569,6 +684,31 @@ MooseVariableFE<OutputType>::insert(NumericVector<Number> & residual)
     residual.insert(&_dof_values[0], _dof_indices);
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::insert(NumericVector<Number> & residual)
+{
+  if (_has_dof_values)
+  {
+    if (isNodal())
+    {
+      for (unsigned int i = 0; i < _dof_indices.size(); ++i)
+        for (unsigned int j = 0; j < _count; ++j)
+          residual.set(_dof_indices[i] + j, _dof_values[i](j));
+    }
+    else
+    {
+      unsigned int n = 0;
+      for (unsigned int j = 0; j < _count; ++j)
+      {
+        for (unsigned int i = 0; i < _dof_indices.size(); ++i)
+          residual.set(_dof_indices[i] + n, _dof_values[i](j));
+        n += _dof_indices.size();
+      }
+    }
+  }
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::add(NumericVector<Number> & residual)
@@ -577,8 +717,33 @@ MooseVariableFE<OutputType>::add(NumericVector<Number> & residual)
     residual.add_vector(&_dof_values[0], _dof_indices);
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::add(NumericVector<Number> & residual)
+{
+  if (_has_dof_values)
+  {
+    if (isNodal())
+    {
+      for (unsigned int i = 0; i < _dof_indices.size(); ++i)
+        for (unsigned int j = 0; j < _count; ++j)
+          residual.add(_dof_indices[i] + j, _dof_values[i](j));
+    }
+    else
+    {
+      unsigned int n = 0;
+      for (unsigned int j = 0; j < _count; ++j)
+      {
+        for (unsigned int i = 0; i < _dof_indices.size(); ++i)
+          residual.add(_dof_indices[i] + n, _dof_values[i](j));
+        n += _dof_indices.size();
+      }
+    }
+  }
+}
+
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValue()
 {
   mooseDeprecated("Use dofValues instead of dofValue");
@@ -586,7 +751,7 @@ MooseVariableFE<OutputType>::dofValue()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValues()
 {
   _need_dof_values = true;
@@ -594,7 +759,7 @@ MooseVariableFE<OutputType>::dofValues()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesOld()
 {
   _need_dof_values_old = true;
@@ -602,7 +767,7 @@ MooseVariableFE<OutputType>::dofValuesOld()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesOlder()
 {
   _need_dof_values_older = true;
@@ -610,7 +775,7 @@ MooseVariableFE<OutputType>::dofValuesOlder()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesPreviousNL()
 {
   _need_dof_values_previous_nl = true;
@@ -618,7 +783,7 @@ MooseVariableFE<OutputType>::dofValuesPreviousNL()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesNeighbor()
 {
   _need_dof_values_neighbor = true;
@@ -626,7 +791,7 @@ MooseVariableFE<OutputType>::dofValuesNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesOldNeighbor()
 {
   _need_dof_values_old_neighbor = true;
@@ -634,7 +799,7 @@ MooseVariableFE<OutputType>::dofValuesOldNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesOlderNeighbor()
 {
   _need_dof_values_older_neighbor = true;
@@ -642,7 +807,7 @@ MooseVariableFE<OutputType>::dofValuesOlderNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesPreviousNLNeighbor()
 {
   _need_dof_values_previous_nl_neighbor = true;
@@ -650,7 +815,7 @@ MooseVariableFE<OutputType>::dofValuesPreviousNLNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDot()
 {
   if (_sys.solutionUDot())
@@ -664,7 +829,7 @@ MooseVariableFE<OutputType>::dofValuesDot()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotDot()
 {
   if (_sys.solutionUDotDot())
@@ -679,7 +844,7 @@ MooseVariableFE<OutputType>::dofValuesDotDot()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotOld()
 {
   if (_sys.solutionUDotOld())
@@ -694,7 +859,7 @@ MooseVariableFE<OutputType>::dofValuesDotOld()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotDotOld()
 {
   if (_sys.solutionUDotDotOld())
@@ -709,7 +874,7 @@ MooseVariableFE<OutputType>::dofValuesDotDotOld()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotNeighbor()
 {
   if (_sys.solutionUDot())
@@ -723,7 +888,7 @@ MooseVariableFE<OutputType>::dofValuesDotNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotDotNeighbor()
 {
   if (_sys.solutionUDotDot())
@@ -738,7 +903,7 @@ MooseVariableFE<OutputType>::dofValuesDotDotNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotOldNeighbor()
 {
   if (_sys.solutionUDotOld())
@@ -753,7 +918,7 @@ MooseVariableFE<OutputType>::dofValuesDotOldNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Number> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::dofValuesDotDotOldNeighbor()
 {
   if (_sys.solutionUDotDotOld())
@@ -858,6 +1023,39 @@ MooseVariableFE<OutputType>::computeIncrementAtQps(const NumericVector<Number> &
   }
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeIncrementAtQps(const NumericVector<Number> & increment_vec)
+{
+  unsigned int nqp = _qrule->n_points();
+
+  _increment.resize(nqp);
+  // Compute the increment at each quadrature point
+  unsigned int num_dofs = _dof_indices.size();
+  if (isNodal())
+  {
+    for (unsigned int qp = 0; qp < nqp; qp++)
+    {
+      for (unsigned int i = 0; i < num_dofs; i++)
+        for (unsigned int j = 0; j < _count; j++)
+          _increment[qp](j) += _phi[i][qp] * increment_vec(_dof_indices[i] + j);
+    }
+  }
+  else
+  {
+    for (unsigned int qp = 0; qp < nqp; qp++)
+    {
+      unsigned int n = 0;
+      for (unsigned int j = 0; j < _count; j++)
+        for (unsigned int i = 0; i < num_dofs; i++)
+        {
+          _increment[qp](j) += _phi[i][qp] * increment_vec(_dof_indices[i] + n);
+          n += num_dofs;
+        }
+    }
+  }
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::computeIncrementAtNode(const NumericVector<Number> & increment_vec)
@@ -871,10 +1069,34 @@ MooseVariableFE<OutputType>::computeIncrementAtNode(const NumericVector<Number> 
   _increment[0] = increment_vec(_dof_indices[0]);
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeIncrementAtNode(const NumericVector<Number> & increment_vec)
+{
+  if (!isNodal())
+    mooseError("computeIncrementAtNode can only be called for nodal variables");
+
+  _increment.resize(1);
+
+  // Compute the increment for the current DOF
+  if (isNodal())
+    for (unsigned int j = 0; j < _count; j++)
+      _increment[0](j) = increment_vec(_dof_indices[0] + j);
+  else
+  {
+    unsigned int n = 0;
+    for (unsigned int j = 0; j < _count; j++)
+    {
+      _increment[0](j) = increment_vec(_dof_indices[0] + n);
+      n += _dof_indices.size();
+    }
+  }
+}
+
 template <typename OutputType>
 OutputType
 MooseVariableFE<OutputType>::getValue(const Elem * elem,
-                                      const std::vector<std::vector<OutputType>> & phi) const
+                                      const std::vector<std::vector<OutputShape>> & phi) const
 {
   std::vector<dof_id_type> dof_indices;
   _dof_map.dof_indices(elem, dof_indices, _var_num);
@@ -892,6 +1114,38 @@ MooseVariableFE<OutputType>::getValue(const Elem * elem,
   {
     mooseAssert(dof_indices.size() == 1, "Wrong size for dof indices");
     value = (*_sys.currentSolution())(dof_indices[0]);
+  }
+
+  return value;
+}
+
+template <>
+RealArrayValue
+MooseVariableFE<RealArrayValue>::getValue(const Elem * elem,
+                                          const std::vector<std::vector<Real>> & phi) const
+{
+  std::vector<dof_id_type> dof_indices;
+  _dof_map.dof_indices(elem, dof_indices, _var_num);
+
+  RealArrayValue value(_count);
+  if (isNodal())
+  {
+    for (unsigned int i = 0; i < dof_indices.size(); ++i)
+      for (unsigned int j = 0; j < _count; j++)
+      {
+        // The zero index is because we only have one point that the phis are evaluated at
+        value(j) += phi[i][0] * (*_sys.currentSolution())(dof_indices[i] + j);
+      }
+  }
+  else
+  {
+    mooseAssert(dof_indices.size() == 1, "Wrong size for dof indices");
+    unsigned int n = 0;
+    for (unsigned int j = 0; j < _count; j++)
+    {
+      value(j) = (*_sys.currentSolution())(dof_indices[0] + n);
+      n += _dof_indices.size();
+    }
   }
 
   return value;
@@ -1279,6 +1533,20 @@ MooseVariableFE<OutputType>::computeAD(
       _ad_u_dot[qp] = _u_dot[qp];
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeAD(
+    const unsigned int /*num_dofs*/,
+    const unsigned int /*nqp*/,
+    const bool /*is_transient*/,
+    const FieldVariablePhiValue & /*phi*/,
+    const FieldVariablePhiGradient & /*grad_phi*/,
+    const FieldVariablePhiSecond *& /*second_phi*/,
+    const typename VariableTestGradientType<RealArrayValue, JACOBIAN>::type & /*ad_grad_phi*/)
+{
+  mooseError("AD for array variable has not been implemented");
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::computeADNeighbor(const unsigned int num_dofs,
@@ -1366,6 +1634,17 @@ MooseVariableFE<OutputType>::computeADNeighbor(const unsigned int num_dofs,
       _neighbor_ad_u_dot[qp] = _u_dot_neighbor[qp];
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeADNeighbor(const unsigned int /*num_dofs*/,
+                                                   const unsigned int /*nqp*/,
+                                                   const bool /*is_transient*/,
+                                                   const FieldVariablePhiValue & /*phi*/,
+                                                   const FieldVariablePhiGradient & /*grad_phi*/,
+                                                   const FieldVariablePhiSecond *& /*second_phi*/)
+{
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
@@ -1440,13 +1719,13 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
     if (_need_second_neighbor)
       _second_u_neighbor[i] = 0;
 
-    if (_need_grad_dot)
-      _grad_u_neighbor_dot[i] = 0;
-    if (_need_grad_dotdot)
-      _grad_u_neighbor_dotdot[i] = 0;
-
     if (is_transient)
     {
+      if (_need_grad_dot)
+        _grad_u_neighbor_dot[i] = 0;
+      if (_need_grad_dotdot)
+        _grad_u_neighbor_dotdot[i] = 0;
+
       if (_need_u_dot_neighbor)
         _u_dot_neighbor[i] = 0;
 
@@ -1492,8 +1771,8 @@ MooseVariableFE<OutputType>::computeNeighborValuesHelper(QBase *& qrule,
   {
     for (unsigned int qp = 0; qp < nqp; ++qp)
     {
-      OutputType phi_local = phi[i][qp];
-      typename OutputTools<OutputType>::OutputGradient dphi_local = grad_phi[i][qp];
+      const OutputType phi_local = phi[i][qp];
+      const typename OutputTools<OutputType>::OutputGradient dphi_local = grad_phi[i][qp];
 
       _u_neighbor[qp] += phi_local * _dof_values_neighbor[i];
 
@@ -1567,8 +1846,8 @@ template <typename OutputType>
 typename OutputTools<OutputType>::OutputGradient
 MooseVariableFE<OutputType>::getGradient(
     const Elem * elem,
-    const std::vector<std::vector<typename OutputTools<OutputType>::OutputGradient>> & grad_phi)
-    const
+    const std::vector<std::vector<typename OutputTools<OutputType>::OutputShapeGradient>> &
+        grad_phi) const
 {
   std::vector<dof_id_type> dof_indices;
   _dof_map.dof_indices(elem, dof_indices, _var_num);
@@ -1586,6 +1865,33 @@ MooseVariableFE<OutputType>::getGradient(
   {
     mooseAssert(dof_indices.size() == 1, "Wrong size for dof indices");
     value = 0.0;
+  }
+
+  return value;
+}
+
+template <>
+RealVectorArrayValue
+MooseVariableFE<RealArrayValue>::getGradient(
+    const Elem * elem, const std::vector<std::vector<RealVectorValue>> & grad_phi) const
+{
+  std::vector<dof_id_type> dof_indices;
+  _dof_map.dof_indices(elem, dof_indices, _var_num);
+
+  RealVectorArrayValue value(_count, LIBMESH_DIM);
+  if (isNodal())
+  {
+    for (unsigned int i = 0; i < dof_indices.size(); ++i)
+      for (unsigned int j = 0; j < _count; ++j)
+        for (unsigned int k = 0; k < LIBMESH_DIM; ++k)
+        {
+          // The zero index is because we only have one point that the phis are evaluated at
+          value(j, k) += grad_phi[i][0](k) * (*_sys.currentSolution())(dof_indices[i] + j);
+        }
+  }
+  else
+  {
+    mooseAssert(dof_indices.size() == 1, "Wrong size for dof indices");
   }
 
   return value;
@@ -1637,7 +1943,7 @@ MooseVariableFE<OutputType>::nodalValueNeighbor()
 }
 
 template <typename OutputType>
-const MooseArray<Real> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::nodalVectorTagValue(TagID tag)
 {
   if (isNodal())
@@ -1659,7 +1965,7 @@ MooseVariableFE<OutputType>::nodalVectorTagValue(TagID tag)
 }
 
 template <typename OutputType>
-const MooseArray<Real> &
+const typename MooseVariableFE<OutputType>::DoFValue &
 MooseVariableFE<OutputType>::nodalMatrixTagValue(TagID tag)
 {
   if (isNodal())
@@ -1998,7 +2304,7 @@ MooseVariableFE<OutputType>::fetchDoFValues()
         if (_sys.hasMatrix(tag) && _sys.matrixTagActive(tag) && _sys.getMatrix(tag).closed())
         {
           auto & mat = _sys.getMatrix(tag);
-          for (unsigned i = 0; i < _dof_indices.size(); i++)
+          for (unsigned i = 0; i < n; i++)
           {
             Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
             _matrix_tags_dof_u[tag][i] = mat(_dof_indices[i], _dof_indices[i]);
@@ -2021,6 +2327,417 @@ MooseVariableFE<OutputType>::fetchDoFValues()
   }
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::fetchDoFValues()
+{
+  bool is_transient = _subproblem.isTransient();
+
+  auto n = _dof_indices.size();
+  libmesh_assert(n);
+
+  /* Idea of using Eigen::map */
+  /*
+  auto & current_solution = dynamic_cast<const PetscVector<Real> &>(*_sys.currentSolution());
+  auto & solution_old = dynamic_cast<const PetscVector<Real> &>(_sys.solutionOld());
+  auto & solution_older = dynamic_cast<const PetscVector<Real> &>(_sys.solutionOlder());
+  auto & u_dot = dynamic_cast<const PetscVector<Real> &>(*_sys.solutionUDot());
+  const Real & du_dot_du = _sys.duDotDu();
+
+  // We need to get array only for reading... but we need to be able to pass the raw pointer into an
+  // Eigen::Map Eigen::Map requires a non-const pointer... so we're going to const_cast it here (but
+  // we're still NOT going to modify it).
+  auto current_solution_values = const_cast<PetscScalar *>(current_solution.get_array_read());
+
+  // Global to local map the dof indices
+  std::vector<dof_id_type> local_dof_indices(n);
+  for (unsigned int i = 0; i < n; i++)
+    local_dof_indices[i] = current_solution.map_global_to_local_index(_dof_indices[i]);
+
+  _dof_values.resize(n);
+  for (unsigned int i = 0; i < n; i++)
+  {
+    auto coefficients_start = current_solution_values + local_dof_indices[i];
+
+    //    // Same here (no allocation actually done)
+    //    OutputData v(NULL, 0);
+    //    new (&v) OutputData(coefficients_start, _count);
+    //    _dof_values.push_back(v);
+  }
+  */
+
+  getArrayDoFValues(*_sys.currentSolution(), n, _dof_values);
+
+  if (is_transient)
+  {
+    if (_need_u_old || _need_grad_old || _need_second_old || _need_curl_old || _need_dof_values_old)
+      getArrayDoFValues(_sys.solutionOld(), n, _dof_values_old);
+    if (_need_u_older || _need_grad_older || _need_second_older || _need_dof_values_older)
+      getArrayDoFValues(_sys.solutionOlder(), n, _dof_values_older);
+    if (_need_u_dot || _need_grad_dot || _need_dof_values_dot)
+    {
+      libmesh_assert(_sys.solutionUDot());
+      getArrayDoFValues(*_sys.solutionUDot(), n, _dof_values_dot);
+    }
+    if (_need_u_dotdot || _need_grad_dotdot || _need_dof_values_dotdot)
+    {
+      libmesh_assert(_sys.solutionUDotDot());
+      getArrayDoFValues(*_sys.solutionUDot(), n, _dof_values_dotdot);
+    }
+    if (_need_u_dot_old || _need_dof_values_dot_old)
+    {
+      libmesh_assert(_sys.solutionUDotOld());
+      getArrayDoFValues(*_sys.solutionUDotOld(), n, _dof_values_dot_old);
+    }
+    if (_need_u_dotdot_old || _need_dof_values_dotdot_old)
+    {
+      libmesh_assert(_sys.solutionUDotDotOld());
+      getArrayDoFValues(*_sys.solutionUDotDotOld(), n, _dof_values_dotdot_old);
+    }
+  }
+
+  if (_need_u_previous_nl || _need_grad_previous_nl || _need_second_previous_nl ||
+      _need_dof_values_previous_nl)
+    getArrayDoFValues(*_sys.solutionPreviousNewton(), n, _dof_values_previous_nl);
+
+  if (_sys.subproblem().safeAccessTaggedVectors())
+  {
+    auto & active_coupleable_vector_tags =
+        _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
+    for (auto tag : active_coupleable_vector_tags)
+      if (_need_vector_tag_u[tag] || _need_vector_tag_dof_u[tag])
+        if (_sys.hasVector(tag) && _sys.getVector(tag).closed())
+          getArrayDoFValues(_sys.getVector(tag), n, _vector_tags_dof_u[tag]);
+  }
+
+  if (_sys.subproblem().safeAccessTaggedMatrices())
+  {
+    auto & active_coupleable_matrix_tags =
+        _sys.subproblem().getActiveFEVariableCoupleableMatrixTags(_tid);
+    for (auto tag : active_coupleable_matrix_tags)
+    {
+      _matrix_tags_dof_u[tag].resize(n);
+      if (_need_matrix_tag_dof_u[tag] || _need_matrix_tag_u[tag])
+        if (_sys.hasMatrix(tag) && _sys.matrixTagActive(tag) && _sys.getMatrix(tag).closed())
+        {
+          auto & mat = _sys.getMatrix(tag);
+          for (unsigned i = 0; i < n; i++)
+          {
+            Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
+            for (unsigned j = 0; j < _count; j++)
+              _matrix_tags_dof_u[tag][i](j) = mat(_dof_indices[i] + j, _dof_indices[i] + j);
+          }
+        }
+    }
+  }
+
+  if (_need_du_dot_du || _need_dof_du_dot_du)
+  {
+    _dof_du_dot_du.resize(n);
+    for (decltype(n) i = 0; i < n; ++i)
+      _dof_du_dot_du[i] = _sys.duDotDu();
+  }
+  if (_need_du_dotdot_du || _need_dof_du_dotdot_du)
+  {
+    _dof_du_dotdot_du.resize(n);
+    for (decltype(n) i = 0; i < n; ++i)
+      _dof_du_dotdot_du[i] = _sys.duDotDotDu();
+  }
+}
+
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeValuesHelper(
+    QBase *& qrule,
+    const typename OutputTools<RealArrayValue>::VariablePhiValue & phi,
+    const typename OutputTools<RealArrayValue>::VariablePhiGradient & grad_phi,
+    const typename OutputTools<RealArrayValue>::VariablePhiSecond *& second_phi,
+    const typename OutputTools<RealArrayValue>::VariablePhiValue *& curl_phi,
+    const typename VariableTestGradientType<RealArrayValue, JACOBIAN>::type & /*ad_grad_phi*/)
+
+{
+  unsigned int num_dofs = _dof_indices.size();
+
+  if (num_dofs > 0)
+    fetchDoFValues();
+
+  bool is_transient = _subproblem.isTransient();
+  unsigned int nqp = qrule->n_points();
+  auto & active_coupleable_vector_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableVectorTags(_tid);
+  auto & active_coupleable_matrix_tags =
+      _sys.subproblem().getActiveFEVariableCoupleableMatrixTags(_tid);
+
+  _u.resize(nqp);
+  _grad_u.resize(nqp);
+
+  for (auto tag : active_coupleable_vector_tags)
+    if (_need_vector_tag_u[tag])
+      _vector_tag_u[tag].resize(nqp);
+
+  for (auto tag : active_coupleable_matrix_tags)
+    if (_need_matrix_tag_u[tag])
+      _matrix_tag_u[tag].resize(nqp);
+
+  if (_need_second)
+    _second_u.resize(nqp);
+
+  if (_need_curl)
+    _curl_u.resize(nqp);
+
+  if (_need_u_previous_nl)
+    _u_previous_nl.resize(nqp);
+
+  if (_need_grad_previous_nl)
+    _grad_u_previous_nl.resize(nqp);
+
+  if (_need_second_previous_nl)
+    _second_u_previous_nl.resize(nqp);
+
+  if (is_transient)
+  {
+    if (_need_u_dot)
+      _u_dot.resize(nqp);
+
+    if (_need_u_dotdot)
+      _u_dotdot.resize(nqp);
+
+    if (_need_u_dot_old)
+      _u_dot_old.resize(nqp);
+
+    if (_need_u_dotdot_old)
+      _u_dotdot_old.resize(nqp);
+
+    if (_need_du_dot_du)
+      _du_dot_du.resize(nqp);
+
+    if (_need_du_dotdot_du)
+      _du_dotdot_du.resize(nqp);
+
+    if (_need_grad_dot)
+      _grad_u_dot.resize(nqp);
+
+    if (_need_grad_dotdot)
+      _grad_u_dotdot.resize(nqp);
+
+    if (_need_u_old)
+      _u_old.resize(nqp);
+
+    if (_need_u_older)
+      _u_older.resize(nqp);
+
+    if (_need_grad_old)
+      _grad_u_old.resize(nqp);
+
+    if (_need_grad_older)
+      _grad_u_older.resize(nqp);
+
+    if (_need_second_old)
+      _second_u_old.resize(nqp);
+
+    if (_need_curl_old)
+      _curl_u_old.resize(nqp);
+
+    if (_need_second_older)
+      _second_u_older.resize(nqp);
+  }
+
+  for (unsigned int i = 0; i < nqp; ++i)
+  {
+    _u[i].setZero(_count);
+    _grad_u[i].setZero(_count, LIBMESH_DIM);
+
+    for (auto tag : active_coupleable_vector_tags)
+      if (_need_vector_tag_u[tag])
+        _vector_tag_u[tag][i].setZero(_count);
+
+    for (auto tag : active_coupleable_matrix_tags)
+      if (_need_matrix_tag_u[tag])
+        _matrix_tag_u[tag][i].setZero(_count);
+
+    if (_need_second)
+      _second_u[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+    if (_need_curl)
+      _curl_u[i].setZero(_count);
+
+    if (_need_u_previous_nl)
+      _u_previous_nl[i].setZero(_count);
+
+    if (_need_grad_previous_nl)
+      _grad_u_previous_nl[i].setZero(_count, LIBMESH_DIM);
+
+    if (_need_second_previous_nl)
+      _second_u_previous_nl[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+    if (is_transient)
+    {
+      if (_need_u_dot)
+        _u_dot[i].setZero(_count);
+
+      if (_need_u_dotdot)
+        _u_dotdot[i].setZero(_count);
+
+      if (_need_u_dot_old)
+        _u_dot_old[i].setZero(_count);
+
+      if (_need_u_dotdot_old)
+        _u_dotdot_old[i].setZero(_count);
+
+      if (_need_du_dot_du)
+        _du_dot_du[i] = 0;
+
+      if (_need_du_dotdot_du)
+        _du_dotdot_du[i] = 0;
+
+      if (_need_grad_dot)
+        _grad_u_dot[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_grad_dotdot)
+        _grad_u_dotdot[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_u_old)
+        _u_old[i].setZero(_count);
+
+      if (_need_u_older)
+        _u_older[i].setZero(_count);
+
+      if (_need_grad_old)
+        _grad_u_old[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_grad_older)
+        _grad_u_older[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_second_old)
+        _second_u_old[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+      if (_need_second_older)
+        _second_u_older[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+      if (_need_curl_old)
+        _curl_u_old[i].setZero(_count);
+    }
+  }
+
+  bool second_required =
+      _need_second || _need_second_old || _need_second_older || _need_second_previous_nl;
+  bool curl_required = _need_curl || _need_curl_old;
+
+  for (unsigned int i = 0; i < num_dofs; i++)
+  {
+    for (unsigned int qp = 0; qp < nqp; qp++)
+    {
+      const OutputShape phi_local = phi[i][qp];
+      const OutputShapeGradient dphi_qp = grad_phi[i][qp];
+
+      _u[qp] += phi_local * _dof_values[i];
+
+      for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+        _grad_u[qp].col(d) += dphi_qp(d) * _dof_values[i];
+
+      if (is_transient)
+      {
+        if (_need_u_old)
+          _u_old[qp] += phi_local * _dof_values_old[i];
+
+        if (_need_u_older)
+          _u_older[qp] += phi_local * _dof_values_older[i];
+
+        if (_need_grad_old)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_old[qp].col(d) += dphi_qp(d) * _dof_values_old[i];
+
+        if (_need_grad_older)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_older[qp].col(d) += dphi_qp(d) * _dof_values_older[i];
+
+        if (_need_u_dot)
+          _u_dot[qp] += phi_local * _dof_values_dot[i];
+
+        if (_need_u_dotdot)
+          _u_dotdot[qp] += phi_local * _dof_values_dotdot[i];
+
+        if (_need_u_dot_old)
+          _u_dot_old[qp] += phi_local * _dof_values_dot_old[i];
+
+        if (_need_u_dotdot_old)
+          _u_dotdot_old[qp] += phi_local * _dof_values_dotdot_old[i];
+
+        if (_need_grad_dot)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_dot[qp].col(d) += dphi_qp(d) * _dof_values_dot[i];
+
+        if (_need_grad_dotdot)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_dotdot[qp].col(d) += dphi_qp(d) * _dof_values_dotdot[i];
+
+        if (_need_du_dot_du)
+          _du_dot_du[qp] = _dof_du_dot_du[i];
+
+        if (_need_du_dotdot_du)
+          _du_dotdot_du[qp] = _dof_du_dotdot_du[i];
+      }
+
+      if (second_required)
+      {
+        libmesh_assert(second_phi);
+        const RealTensorValue d2phi_local = (*second_phi)[i][qp];
+
+        if (_need_second)
+          for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+            for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+              _second_u[qp].col(d++) += d2phi_local(d1, d2) * _dof_values[i];
+
+        if (_need_second_previous_nl)
+          for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+            for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+              _second_u_previous_nl[qp].col(d++) +=
+                  d2phi_local(d1, d2) * _dof_values_previous_nl[i];
+
+        if (is_transient)
+        {
+          if (_need_second_old)
+            for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+              for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+                _second_u_old[qp].col(d++) += d2phi_local(d1, d2) * _dof_values_old[i];
+
+          if (_need_second_older)
+            for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+              for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+                _second_u_older[qp].col(d++) += d2phi_local(d1, d2) * _dof_values_older[i];
+        }
+      }
+
+      if (curl_required)
+      {
+        libmesh_assert(curl_phi);
+        const auto curl_phi_local = (*curl_phi)[i][qp];
+
+        if (_need_curl)
+          _curl_u[qp] += curl_phi_local * _dof_values[i];
+
+        if (is_transient && _need_curl_old)
+          _curl_u_old[qp] += curl_phi_local * _dof_values_old[i];
+      }
+
+      for (auto tag : active_coupleable_vector_tags)
+        if (_need_vector_tag_u[tag])
+          _vector_tag_u[tag][qp] += phi_local * _vector_tags_dof_u[tag][i];
+
+      for (auto tag : active_coupleable_matrix_tags)
+        if (_need_matrix_tag_u[tag])
+          _matrix_tag_u[tag][qp] += phi_local * _matrix_tags_dof_u[tag][i];
+
+      if (_need_u_previous_nl)
+        _u_previous_nl[qp] += phi_local * _dof_values_previous_nl[i];
+
+      if (_need_grad_previous_nl)
+        for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+          _grad_u_previous_nl[qp].col(d) += dphi_qp(d) * _dof_values_previous_nl[i];
+    }
+  }
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::fetchADDoFValues()
@@ -2037,6 +2754,13 @@ MooseVariableFE<OutputType>::fetchADDoFValues()
       _ad_dof_values[i].derivatives()[ad_offset + i] = 1.;
     assignADNodalValue(_ad_dof_values[i], i);
   }
+}
+
+template <>
+void
+MooseVariableFE<RealArrayValue>::fetchADDoFValues()
+{
+  mooseError("I do not know how to support AD with array variables");
 }
 
 template <typename OutputType>
@@ -2224,6 +2948,271 @@ MooseVariableFE<OutputType>::fetchDoFValuesNeighbor()
   }
 }
 
+template <>
+void
+MooseVariableFE<RealArrayValue>::fetchDoFValuesNeighbor()
+{
+  bool is_transient = _subproblem.isTransient();
+
+  auto n = _dof_indices_neighbor.size();
+  libmesh_assert(n);
+
+  getArrayDoFValuesNeighbor(*_sys.currentSolution(), n, _dof_values_neighbor);
+
+  if (_need_u_previous_nl_neighbor || _need_grad_previous_nl_neighbor ||
+      _need_second_previous_nl_neighbor || _need_dof_values_previous_nl_neighbor)
+    getArrayDoFValuesNeighbor(*_sys.solutionPreviousNewton(), n, _dof_values_previous_nl_neighbor);
+
+  if (is_transient)
+  {
+    if (_need_u_old_neighbor || _need_grad_old_neighbor || _need_second_old_neighbor ||
+        _need_dof_values_old_neighbor)
+      getArrayDoFValuesNeighbor(_sys.solutionOld(), n, _dof_values_old_neighbor);
+    if (_need_u_older_neighbor || _need_grad_older_neighbor || _need_second_older_neighbor ||
+        _need_dof_values_older_neighbor)
+      getArrayDoFValuesNeighbor(_sys.solutionOlder(), n, _dof_values_older_neighbor);
+    if (_need_u_dot_neighbor || _need_grad_neighbor_dot || _need_dof_values_dot_neighbor)
+    {
+      libmesh_assert(_sys.solutionUDot());
+      getArrayDoFValuesNeighbor(*_sys.solutionUDot(), n, _dof_values_dot_neighbor);
+    }
+    if (_need_u_dotdot_neighbor || _need_grad_neighbor_dotdot || _need_dof_values_dotdot_neighbor)
+    {
+      libmesh_assert(_sys.solutionUDotDot());
+      getArrayDoFValuesNeighbor(*_sys.solutionUDotDot(), n, _dof_values_dotdot_neighbor);
+    }
+    if (_need_u_dot_old_neighbor || _need_dof_values_dot_old_neighbor)
+    {
+      libmesh_assert(_sys.solutionUDotOld());
+      getArrayDoFValuesNeighbor(*_sys.solutionUDotOld(), n, _dof_values_dot_old_neighbor);
+    }
+    if (_need_u_dotdot_old_neighbor || _need_dof_values_dotdot_old_neighbor)
+    {
+      libmesh_assert(_sys.solutionUDotDotOld());
+      getArrayDoFValuesNeighbor(*_sys.solutionUDotDotOld(), n, _dof_values_dotdot_old_neighbor);
+    }
+  }
+  if (_need_du_dot_du_neighbor || _need_dof_du_dot_du_neighbor)
+  {
+    _dof_du_dot_du_neighbor.resize(n);
+    for (decltype(n) i = 0; i < n; ++i)
+      _dof_du_dot_du_neighbor[i] = _sys.duDotDu();
+  }
+  if (_need_du_dotdot_du_neighbor || _need_dof_du_dotdot_du_neighbor)
+  {
+    _dof_du_dotdot_du_neighbor.resize(n);
+    for (decltype(n) i = 0; i < n; ++i)
+      _dof_du_dotdot_du_neighbor[i] = _sys.duDotDotDu();
+  }
+}
+
+template <>
+void
+MooseVariableFE<RealArrayValue>::computeNeighborValuesHelper(
+    QBase *& qrule,
+    const FieldVariablePhiValue & phi,
+    const FieldVariablePhiGradient & grad_phi,
+    const FieldVariablePhiSecond *& second_phi)
+{
+  unsigned int num_dofs = _dof_indices_neighbor.size();
+
+  if (num_dofs > 0)
+    fetchDoFValuesNeighbor();
+
+  bool is_transient = _subproblem.isTransient();
+  unsigned int nqp = qrule->n_points();
+
+  _u_neighbor.resize(nqp);
+  _grad_u_neighbor.resize(nqp);
+
+  if (_need_second_neighbor)
+    _second_u_neighbor.resize(nqp);
+
+  if (is_transient)
+  {
+    if (_need_u_dot_neighbor)
+      _u_dot_neighbor.resize(nqp);
+
+    if (_need_u_dotdot_neighbor)
+      _u_dotdot_neighbor.resize(nqp);
+
+    if (_need_u_dot_old_neighbor)
+      _u_dot_old_neighbor.resize(nqp);
+
+    if (_need_u_dotdot_old_neighbor)
+      _u_dotdot_old_neighbor.resize(nqp);
+
+    if (_need_du_dot_du_neighbor)
+      _du_dot_du_neighbor.resize(nqp);
+
+    if (_need_du_dotdot_du_neighbor)
+      _du_dotdot_du_neighbor.resize(nqp);
+
+    if (_need_grad_neighbor_dot)
+      _grad_u_neighbor_dot.resize(nqp);
+
+    if (_need_grad_neighbor_dotdot)
+      _grad_u_neighbor_dotdot.resize(nqp);
+
+    if (_need_u_old_neighbor)
+      _u_old_neighbor.resize(nqp);
+
+    if (_need_u_older_neighbor)
+      _u_older_neighbor.resize(nqp);
+
+    if (_need_grad_old_neighbor)
+      _grad_u_old_neighbor.resize(nqp);
+
+    if (_need_grad_older_neighbor)
+      _grad_u_older_neighbor.resize(nqp);
+
+    if (_need_second_old_neighbor)
+      _second_u_old_neighbor.resize(nqp);
+
+    if (_need_second_older_neighbor)
+      _second_u_older_neighbor.resize(nqp);
+  }
+
+  for (unsigned int i = 0; i < nqp; ++i)
+  {
+    _u_neighbor[i].setZero(_count);
+    _grad_u_neighbor[i].setZero(_count, LIBMESH_DIM);
+
+    if (_need_second_neighbor)
+      _second_u_neighbor[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+    if (is_transient)
+    {
+      if (_need_grad_dot)
+        _grad_u_neighbor_dot[i].setZero(_count, LIBMESH_DIM);
+      if (_need_grad_dotdot)
+        _grad_u_neighbor_dotdot[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_u_dot_neighbor)
+        _u_dot_neighbor[i].setZero(_count);
+
+      if (_need_u_dotdot_neighbor)
+        _u_dotdot_neighbor[i].setZero(_count);
+
+      if (_need_u_dot_old_neighbor)
+        _u_dot_old_neighbor[i].setZero(_count);
+
+      if (_need_u_dotdot_old_neighbor)
+        _u_dotdot_old_neighbor[i].setZero(_count);
+
+      if (_need_du_dot_du_neighbor)
+        _du_dot_du_neighbor[i] = 0;
+
+      if (_need_du_dotdot_du_neighbor)
+        _du_dotdot_du_neighbor[i] = 0;
+
+      if (_need_u_old_neighbor)
+        _u_old_neighbor[i].setZero(_count);
+
+      if (_need_u_older_neighbor)
+        _u_older_neighbor[i].setZero(_count);
+
+      if (_need_grad_old_neighbor)
+        _grad_u_old_neighbor[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_grad_older_neighbor)
+        _grad_u_older_neighbor[i].setZero(_count, LIBMESH_DIM);
+
+      if (_need_second_old_neighbor)
+        _second_u_old_neighbor[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+
+      if (_need_second_older_neighbor)
+        _second_u_older_neighbor[i].setZero(_count, LIBMESH_DIM * LIBMESH_DIM);
+    }
+  }
+
+  bool second_required =
+      _need_second_neighbor || _need_second_old_neighbor || _need_second_older_neighbor;
+
+  for (unsigned int i = 0; i < num_dofs; ++i)
+  {
+    for (unsigned int qp = 0; qp < nqp; ++qp)
+    {
+      const OutputShape phi_local = phi[i][qp];
+      const OutputShapeGradient dphi_local = grad_phi[i][qp];
+
+      _u_neighbor[qp] += phi_local * _dof_values_neighbor[i];
+
+      for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+        _grad_u_neighbor[qp].col(d) += dphi_local(d) * _dof_values_neighbor[i];
+
+      if (is_transient)
+      {
+        if (_need_u_old_neighbor)
+          _u_old_neighbor[qp] += phi_local * _dof_values_old_neighbor[i];
+
+        if (_need_u_older_neighbor)
+          _u_older_neighbor[qp] += phi_local * _dof_values_older_neighbor[i];
+
+        if (_need_grad_old_neighbor)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_old_neighbor[qp].col(d) += dphi_local(d) * _dof_values_old_neighbor[i];
+
+        if (_need_grad_older_neighbor)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_older_neighbor[qp].col(d) += dphi_local(d) * _dof_values_older_neighbor[i];
+
+        if (_need_u_dot_neighbor)
+          _u_dot_neighbor[qp] += phi_local * _dof_values_dot_neighbor[i];
+
+        if (_need_u_dotdot_neighbor)
+          _u_dotdot_neighbor[qp] += phi_local * _dof_values_dotdot_neighbor[i];
+
+        if (_need_u_dot_old_neighbor)
+          _u_dot_old_neighbor[qp] += phi_local * _dof_values_dot_old_neighbor[i];
+
+        if (_need_u_dotdot_old_neighbor)
+          _u_dotdot_old_neighbor[qp] += phi_local * _dof_values_dotdot_old_neighbor[i];
+
+        if (_need_grad_neighbor_dot)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_neighbor_dot[qp].col(d) += dphi_local(d) * _dof_values_dot_neighbor[i];
+
+        if (_need_grad_neighbor_dotdot)
+          for (unsigned int d = 0; d < LIBMESH_DIM; ++d)
+            _grad_u_neighbor_dotdot[qp].col(d) += dphi_local(d) * _dof_values_dotdot_neighbor[i];
+
+        if (_need_du_dot_du_neighbor)
+          _du_dot_du_neighbor[qp] = _dof_du_dot_du_neighbor[i];
+
+        if (_need_du_dotdot_du_neighbor)
+          _du_dotdot_du_neighbor[qp] = _dof_du_dotdot_du_neighbor[i];
+      }
+
+      if (second_required)
+      {
+        libmesh_assert(second_phi);
+        const RealTensorValue d2phi_local = (*second_phi)[i][qp];
+
+        if (_need_second_neighbor)
+          for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+            for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+              _second_u_neighbor[qp].col(d++) += d2phi_local(d1, d2) * _dof_values_neighbor[i];
+
+        if (is_transient)
+        {
+          if (_need_second_old_neighbor)
+            for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+              for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+                _second_u_old_neighbor[qp].col(d++) +=
+                    d2phi_local(d1, d2) * _dof_values_old_neighbor[i];
+
+          if (_need_second_older_neighbor)
+            for (unsigned int d = 0, d1 = 0; d1 < LIBMESH_DIM; ++d1)
+              for (unsigned int d2 = 0; d2 < LIBMESH_DIM; ++d2)
+                _second_u_older_neighbor[qp].col(d++) +=
+                    d2phi_local(d1, d2) * _dof_values_older_neighbor[i];
+        }
+      }
+    }
+  }
+}
+
 template <typename OutputType>
 void
 MooseVariableFE<OutputType>::assignNodalValueNeighbor()
@@ -2295,7 +3284,7 @@ MooseVariableFE<OutputType>::zeroSizeDofValuesNeighbor()
 
 template <typename OutputType>
 void
-MooseVariableFE<OutputType>::setDofValues(const DenseVector<Number> & values)
+MooseVariableFE<OutputType>::setDofValues(const DenseVector<OutputData> & values)
 {
   for (unsigned int i = 0; i < values.size(); i++)
     _dof_values[i] = values(i);
@@ -2304,8 +3293,8 @@ MooseVariableFE<OutputType>::setDofValues(const DenseVector<Number> & values)
 
   for (unsigned int qp = 0; qp < _u.size(); qp++)
   {
-    _u[qp] = 0;
-    for (unsigned int i = 0; i < _dof_values.size(); i++)
+    _u[qp] = _phi[0][qp] * _dof_values[0];
+    for (unsigned int i = 1; i < _dof_values.size(); i++)
       _u[qp] += _phi[i][qp] * _dof_values[i];
   }
 }
@@ -2336,6 +3325,20 @@ MooseVariableFE<RealVectorValue>::setNodalValue(RealVectorValue value, unsigned 
   // Update the qp values as well
   for (unsigned int qp = 0; qp < _u.size(); qp++)
     _u[qp] = value;
+}
+
+template <typename OutputType>
+Moose::VarFieldType
+MooseVariableFE<OutputType>::fieldType() const
+{
+  if (std::is_same<OutputType, Real>::value)
+    return Moose::VarFieldType::VAR_FIELD_STANDARD;
+  else if (std::is_same<OutputType, RealVectorValue>::value)
+    return Moose::VarFieldType::VAR_FIELD_VECTOR;
+  else if (std::is_same<OutputType, RealArrayValue>::value)
+    return Moose::VarFieldType::VAR_FIELD_ARRAY;
+  else
+    mooseError("Unknown variable field type");
 }
 
 template <typename OutputType>
@@ -2600,6 +3603,7 @@ MooseVariableFE<OutputType>::curlPhiFaceNeighbor()
 
 template class MooseVariableFE<Real>;
 template class MooseVariableFE<RealVectorValue>;
+template class MooseVariableFE<RealArrayValue>;
 template const MooseArray<DualReal> & MooseVariableFE<Real>::adDofValues<JACOBIAN>();
 template const MooseArray<DualReal> & MooseVariableFE<RealVectorValue>::adDofValues<JACOBIAN>();
 template const DualReal & MooseVariableFE<Real>::adNodalValue<JACOBIAN>();
