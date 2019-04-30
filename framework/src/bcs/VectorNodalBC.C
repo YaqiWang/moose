@@ -23,6 +23,7 @@ validParams<VectorNodalBC>()
 
 VectorNodalBC::VectorNodalBC(const InputParameters & parameters)
   : NodalBCBase(parameters),
+    TaggingAssemblyInterface<RealVectorValue>(this),
     MooseVariableInterface<RealVectorValue>(this,
                                             true,
                                             "variable",

@@ -10,13 +10,16 @@
 #pragma once
 
 #include "NodalBCBase.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 /**
  * Base class for deriving any automatic differentiation boundary condition of a integrated type
  */
 template <typename T, ComputeStage compute_stage>
-class ADNodalBCTempl : public NodalBCBase, public MooseVariableInterface<T>
+class ADNodalBCTempl : public NodalBCBase,
+                       public TaggingAssemblyInterface<T>,
+                       public MooseVariableInterface<T>
 {
 public:
   ADNodalBCTempl(const InputParameters & parameters);
@@ -65,4 +68,3 @@ declareADValidParams(ADVectorNodalBC);
 
 #define usingNodalBCMembers usingTemplNodalBCMembers(Real)
 #define usingVectorNodalBCMembers usingTemplNodalBCMembers(RealVectorValue)
-

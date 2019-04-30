@@ -19,6 +19,7 @@
 #include "MeshChangedInterface.h"
 #include "VectorPostprocessorInterface.h"
 #include "TaggingInterface.h"
+#include "TaggingAssemblyInterface.h"
 
 // Forward declarations
 class ScalarKernel;
@@ -41,7 +42,8 @@ class ScalarKernel : public MooseObject,
                      public TransientInterface,
                      public MeshChangedInterface,
                      protected VectorPostprocessorInterface,
-                     public TaggingInterface
+                     public TaggingInterface,
+                     public TaggingAssemblyInterface<Real>
 {
 public:
   ScalarKernel(const InputParameters & parameters);
@@ -83,4 +85,3 @@ protected:
   /// Old value(s) of the scalar variable
   VariableValue & _u_old;
 };
-

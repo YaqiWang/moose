@@ -10,6 +10,7 @@
 #pragma once
 
 #include "IntegratedBCBase.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 // Forward declarations
@@ -21,7 +22,9 @@ InputParameters validParams<IntegratedBC>();
 /**
  * Base class for deriving any boundary condition of a integrated type
  */
-class IntegratedBC : public IntegratedBCBase, public MooseVariableInterface<Real>
+class IntegratedBC : public IntegratedBCBase,
+                     public TaggingAssemblyInterface<Real>,
+                     public MooseVariableInterface<Real>
 {
 public:
   IntegratedBC(const InputParameters & parameters);
@@ -76,4 +79,3 @@ protected:
   /// the gradient of the unknown variable this BC is acting on
   const VariableGradient & _grad_u;
 };
-

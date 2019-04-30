@@ -79,6 +79,7 @@ NodalKernel::NodalKernel(const InputParameters & parameters)
                                  Moose::VarKindType::VAR_NONLINEAR,
                                  Moose::VarFieldType::VAR_FIELD_STANDARD),
     TaggingInterface(this),
+    TaggingAssemblyInterface<Real>(this),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
     _sys(*getCheckedPointerParam<SystemBase *>("_sys")),

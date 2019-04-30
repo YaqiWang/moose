@@ -25,6 +25,7 @@
 #include "MeshChangedInterface.h"
 #include "MooseVariableInterface.h"
 #include "TaggingInterface.h"
+#include "TaggingAssemblyInterface.h"
 
 // Forward Declarations
 class Assembly;
@@ -54,7 +55,8 @@ class DiracKernel : public MooseObject,
                     protected GeometricSearchInterface,
                     public Restartable,
                     public MeshChangedInterface,
-                    public TaggingInterface
+                    public TaggingInterface,
+                    public TaggingAssemblyInterface<Real>
 {
 public:
   DiracKernel(const InputParameters & parameters);
@@ -239,4 +241,3 @@ private:
   /// id != invalid_uint.
   const Elem * addPointWithValidId(Point p, unsigned id);
 };
-

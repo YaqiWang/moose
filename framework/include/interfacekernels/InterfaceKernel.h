@@ -22,6 +22,7 @@
 #include "MeshChangedInterface.h"
 #include "TwoMaterialPropertyInterface.h"
 #include "TaggingInterface.h"
+#include "TaggingAssemblyInterface.h"
 
 // Forward Declarations
 class InterfaceKernel;
@@ -44,7 +45,8 @@ class InterfaceKernel : public MooseObject,
                         public Restartable,
                         public MeshChangedInterface,
                         public TwoMaterialPropertyInterface,
-                        public TaggingInterface
+                        public TaggingInterface,
+                        public TaggingAssemblyInterface<Real>
 {
 public:
   InterfaceKernel(const InputParameters & parameters);
@@ -252,4 +254,3 @@ protected:
   /// Mutex that prevents multiple threads from saving into the jacobian aux_var at the same time
   static Threads::spin_mutex _jacoby_vars_mutex;
 };
-

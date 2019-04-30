@@ -12,6 +12,7 @@
 #include "NodalBCBase.h"
 #include "RandomInterface.h"
 #include "CoupleableMooseVariableDependencyIntermediateInterface.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 // Forward declarations
@@ -23,7 +24,9 @@ InputParameters validParams<NodalBC>();
 /**
  * Base class for deriving any boundary condition that works at nodes
  */
-class NodalBC : public NodalBCBase, public MooseVariableInterface<Real>
+class NodalBC : public NodalBCBase,
+                public TaggingAssemblyInterface<Real>,
+                public MooseVariableInterface<Real>
 {
 public:
   NodalBC(const InputParameters & parameters);
@@ -62,4 +65,3 @@ protected:
    */
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 };
-

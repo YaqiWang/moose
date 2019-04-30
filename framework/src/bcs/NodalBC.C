@@ -20,12 +20,12 @@ validParams<NodalBC>()
 {
   InputParameters params = validParams<NodalBCBase>();
   params += validParams<RandomInterface>();
-
   return params;
 }
 
 NodalBC::NodalBC(const InputParameters & parameters)
   : NodalBCBase(parameters),
+    TaggingAssemblyInterface<Real>(this),
     MooseVariableInterface<Real>(this,
                                  true,
                                  "variable",

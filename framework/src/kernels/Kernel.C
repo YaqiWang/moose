@@ -30,6 +30,7 @@ validParams<Kernel>()
 
 Kernel::Kernel(const InputParameters & parameters)
   : KernelBase(parameters),
+    TaggingAssemblyInterface<Real>(this),
     MooseVariableInterface<Real>(this,
                                  false,
                                  "variable",

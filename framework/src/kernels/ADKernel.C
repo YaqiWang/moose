@@ -23,6 +23,7 @@ defineADBaseValidParams(ADVectorKernel, KernelBase, params.registerBase("VectorK
 template <typename T, ComputeStage compute_stage>
 ADKernelTempl<T, compute_stage>::ADKernelTempl(const InputParameters & parameters)
   : KernelBase(parameters),
+    TaggingAssemblyInterface<T>(this),
     MooseVariableInterface<T>(this,
                               false,
                               "variable",
@@ -89,20 +90,20 @@ template <typename T, ComputeStage compute_stage>
 void
 ADKernelTempl<T, compute_stage>::computeResidual()
 {
-  prepareVectorTag(_assembly, _var.number());
+  this->prepareVectorTag(_assembly, _var.number());
 
   precalculateResidual();
   for (_i = 0; _i < _test.size(); _i++)
     for (_qp = 0; _qp < _qrule->n_points(); _qp++)
-      _local_re(_i) += _ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual();
+      this->_local_re(_i) += _ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual();
 
-  accumulateTaggedLocalResidual();
+  this->accumulateTaggedLocalResidual();
 
   if (_has_save_in)
   {
     Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _save_in.size(); i++)
-      _save_in[i]->sys().solution().add_vector(_local_re, _save_in[i]->dofIndices());
+      _save_in[i]->sys().solution().add_vector(this->_local_re, _save_in[i]->dofIndices());
   }
 }
 
@@ -122,7 +123,7 @@ template <typename T, ComputeStage compute_stage>
 void
 ADKernelTempl<T, compute_stage>::computeJacobian()
 {
-  prepareMatrixTag(_assembly, _var.number(), _var.number());
+  this->prepareMatrixTag(_assembly, _var.number(), _var.number());
 
   size_t ad_offset = _var.number() * _sys.getMaxVarNDofsPerElem();
 
@@ -133,18 +134,18 @@ ADKernelTempl<T, compute_stage>::computeJacobian()
     {
       DualReal residual = _ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual();
       for (_j = 0; _j < _var.phiSize(); _j++)
-        _local_ke(_i, _j) += residual.derivatives()[ad_offset + _j];
+        this->_local_ke(_i, _j) += residual.derivatives()[ad_offset + _j];
     }
   }
 
-  accumulateTaggedLocalMatrix();
+  this->accumulateTaggedLocalMatrix();
 
   if (_has_diag_save_in)
   {
-    unsigned int rows = _local_ke.m();
+    unsigned int rows = this->_local_ke.m();
     DenseVector<Number> diag(rows);
     for (unsigned int i = 0; i < rows; i++)
-      diag(i) = _local_ke(i, i);
+      diag(i) = this->_local_ke(i, i);
 
     Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _diag_save_in.size(); i++)
@@ -189,17 +190,17 @@ ADKernelTempl<T, compute_stage>::computeADOffDiagJacobian()
 
     size_t ad_offset = jvar * _sys.getMaxVarNDofsPerElem();
 
-    prepareMatrixTag(_assembly, ivar, jvar);
+    this->prepareMatrixTag(_assembly, ivar, jvar);
 
-    if (_local_ke.m() != _test.size() || _local_ke.n() != jvariable.phiSize())
+    if (this->_local_ke.m() != _test.size() || this->_local_ke.n() != jvariable.phiSize())
       continue;
 
     precalculateResidual();
     for (_i = 0; _i < _test.size(); _i++)
       for (_j = 0; _j < jvariable.phiSize(); _j++)
-        _local_ke(_i, _j) += residuals[_i].derivatives()[ad_offset + _j];
+        this->_local_ke(_i, _j) += residuals[_i].derivatives()[ad_offset + _j];
 
-    accumulateTaggedLocalMatrix();
+    this->accumulateTaggedLocalMatrix();
   }
 }
 

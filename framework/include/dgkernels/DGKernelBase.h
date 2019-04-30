@@ -23,6 +23,7 @@
 #include "Restartable.h"
 #include "MeshChangedInterface.h"
 #include "TaggingInterface.h"
+#include "TaggingAssemblyInterface.h"
 
 // Forward Declarations
 class MooseMesh;
@@ -55,7 +56,8 @@ class DGKernelBase : public MooseObject,
                      public TwoMaterialPropertyInterface,
                      public Restartable,
                      public MeshChangedInterface,
-                     public TaggingInterface
+                     public TaggingInterface,
+                     public TaggingAssemblyInterface<Real>
 {
 public:
   /**
@@ -199,4 +201,3 @@ protected:
   static Threads::spin_mutex _resid_vars_mutex;
   static Threads::spin_mutex _jacoby_vars_mutex;
 };
-

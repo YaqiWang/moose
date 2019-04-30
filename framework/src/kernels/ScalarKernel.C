@@ -54,6 +54,7 @@ ScalarKernel::ScalarKernel(const InputParameters & parameters)
     // ScalarKernel will end up being evaluated
     VectorPostprocessorInterface(this, /*broadcast_by_default=*/true),
     TaggingInterface(this),
+    TaggingAssemblyInterface<Real>(this),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _sys(*getCheckedPointerParam<SystemBase *>("_sys")),
     _tid(parameters.get<THREAD_ID>("_tid")),

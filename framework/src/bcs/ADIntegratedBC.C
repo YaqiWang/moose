@@ -24,6 +24,7 @@ defineADBaseValidParams(ADVectorIntegratedBC, IntegratedBCBase, );
 template <typename T, ComputeStage compute_stage>
 ADIntegratedBCTempl<T, compute_stage>::ADIntegratedBCTempl(const InputParameters & parameters)
   : IntegratedBCBase(parameters),
+    TaggingAssemblyInterface<T>(this),
     MooseVariableInterface<T>(this,
                               false,
                               "variable",
@@ -84,20 +85,20 @@ void
 ADIntegratedBCTempl<T, compute_stage>::computeResidual()
 {
   DenseVector<Number> & re = _assembly.residualBlock(_var.number());
-  _local_re.resize(re.size());
-  _local_re.zero();
+  this->_local_re.resize(re.size());
+  this->_local_re.zero();
 
   for (_qp = 0; _qp < _qrule->n_points(); _qp++)
     for (_i = 0; _i < _test.size(); _i++)
-      _local_re(_i) += _ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual();
+      this->_local_re(_i) += _ad_JxW[_qp] * _ad_coord[_qp] * computeQpResidual();
 
-  re += _local_re;
+  re += this->_local_re;
 
   if (_has_save_in)
   {
     Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _save_in.size(); i++)
-      _save_in[i]->sys().solution().add_vector(_local_re, _save_in[i]->dofIndices());
+      _save_in[i]->sys().solution().add_vector(this->_local_re, _save_in[i]->dofIndices());
   }
 }
 
@@ -118,8 +119,8 @@ void
 ADIntegratedBCTempl<T, compute_stage>::computeJacobian()
 {
   DenseMatrix<Number> & ke = _assembly.jacobianBlock(_var.number(), _var.number());
-  _local_ke.resize(ke.m(), ke.n());
-  _local_ke.zero();
+  this->_local_ke.resize(ke.m(), ke.n());
+  this->_local_ke.zero();
 
   size_t ad_offset = _var.number() * _sys.getMaxVarNDofsPerElem();
 
@@ -128,18 +129,18 @@ ADIntegratedBCTempl<T, compute_stage>::computeJacobian()
     {
       DualReal residual = computeQpResidual();
       for (_j = 0; _j < _var.phiSize(); ++_j)
-        _local_ke(_i, _j) +=
+        this->_local_ke(_i, _j) +=
             (_ad_JxW[_qp] * _ad_coord[_qp] * residual).derivatives()[ad_offset + _j];
     }
 
-  ke += _local_ke;
+  ke += this->_local_ke;
 
   if (_has_diag_save_in)
   {
     unsigned int rows = ke.m();
     DenseVector<Number> diag(rows);
     for (unsigned int i = 0; i < rows; i++)
-      diag(i) = _local_ke(i, i);
+      diag(i) = this->_local_ke(i, i);
 
     Threads::spin_mutex::scoped_lock lock(Threads::spin_mtx);
     for (unsigned int i = 0; i < _diag_save_in.size(); i++)

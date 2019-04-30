@@ -10,6 +10,7 @@
 #pragma once
 
 #include "NodalBCBase.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 // Forward declarations
@@ -21,7 +22,9 @@ InputParameters validParams<VectorNodalBC>();
 /**
  * Base class for deriving any boundary condition that works at nodes on vector variables
  */
-class VectorNodalBC : public NodalBCBase, public MooseVariableInterface<RealVectorValue>
+class VectorNodalBC : public NodalBCBase,
+                      public TaggingAssemblyInterface<RealVectorValue>,
+                      public MooseVariableInterface<RealVectorValue>
 {
 public:
   VectorNodalBC(const InputParameters & parameters);
@@ -59,4 +62,3 @@ protected:
    */
   virtual Real computeQpOffDiagJacobian(unsigned int jvar);
 };
-

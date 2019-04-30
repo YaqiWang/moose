@@ -24,6 +24,7 @@ defineADBaseValidParams(ADVectorNodalBC, NodalBCBase, );
 template <typename T, ComputeStage compute_stage>
 ADNodalBCTempl<T, compute_stage>::ADNodalBCTempl(const InputParameters & parameters)
   : NodalBCBase(parameters),
+    TaggingAssemblyInterface<T>(this),
     MooseVariableInterface<T>(this,
                               true,
                               "variable",
@@ -59,7 +60,7 @@ ADNodalBCTempl<T, compute_stage>::computeResidual()
 
   auto residual = computeQpResidual();
 
-  for (auto tag_id : _vector_tags)
+  for (auto tag_id : this->_vector_tags)
     if (_sys.hasVector(tag_id))
       for (size_t i = 0; i < dof_indices.size(); ++i)
         _sys.getVector(tag_id).set(dof_indices[i], conversionHelper(residual, i));
@@ -86,7 +87,7 @@ ADNodalBCTempl<T, compute_stage>::computeJacobian()
   const std::vector<dof_id_type> & cached_rows = _var.dofIndices();
 
   // Cache the user's computeQpJacobian() value for later use.
-  for (auto tag : _matrix_tags)
+  for (auto tag : this->_matrix_tags)
     if (_sys.hasMatrix(tag))
       for (size_t i = 0; i < cached_rows.size(); ++i)
         _fe_problem.assembly(0).cacheJacobianContribution(
@@ -123,7 +124,7 @@ ADNodalBCTempl<T, compute_stage>::computeOffDiagJacobian(unsigned int jvar)
     dof_id_type cached_col = _current_node->dof_number(_sys.number(), jvar, 0);
 
     // Cache the user's computeQpJacobian() value for later use.
-    for (auto tag : _matrix_tags)
+    for (auto tag : this->_matrix_tags)
       if (_sys.hasMatrix(tag))
         for (size_t i = 0; i < cached_rows.size(); ++i)
           _fe_problem.assembly(0).cacheJacobianContribution(

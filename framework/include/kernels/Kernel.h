@@ -10,6 +10,7 @@
 #pragma once
 
 #include "KernelBase.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 class Kernel;
@@ -17,7 +18,9 @@ class Kernel;
 template <>
 InputParameters validParams<Kernel>();
 
-class Kernel : public KernelBase, public MooseVariableInterface<Real>
+class Kernel : public KernelBase,
+               public TaggingAssemblyInterface<Real>,
+               public MooseVariableInterface<Real>
 {
 public:
   Kernel(const InputParameters & parameters);

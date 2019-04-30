@@ -28,6 +28,7 @@ validParams<VectorKernel>()
 
 VectorKernel::VectorKernel(const InputParameters & parameters)
   : KernelBase(parameters),
+    TaggingAssemblyInterface<RealVectorValue>(this),
     MooseVariableInterface<RealVectorValue>(this,
                                             false,
                                             "variable",

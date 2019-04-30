@@ -28,6 +28,7 @@ validParams<IntegratedBC>()
 
 IntegratedBC::IntegratedBC(const InputParameters & parameters)
   : IntegratedBCBase(parameters),
+    TaggingAssemblyInterface<Real>(this),
     MooseVariableInterface<Real>(this,
                                  false,
                                  "variable",

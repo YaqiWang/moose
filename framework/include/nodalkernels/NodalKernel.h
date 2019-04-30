@@ -26,6 +26,7 @@
 #include "CoupleableMooseVariableDependencyIntermediateInterface.h"
 #include "MooseVariableInterface.h"
 #include "TaggingInterface.h"
+#include "TaggingAssemblyInterface.h"
 
 // Forward declerations
 template <typename>
@@ -59,7 +60,8 @@ class NodalKernel : public MooseObject,
                     public RandomInterface,
                     public CoupleableMooseVariableDependencyIntermediateInterface,
                     public MooseVariableInterface<Real>,
-                    public TaggingInterface
+                    public TaggingInterface,
+                    public TaggingAssemblyInterface<Real>
 {
 public:
   /**
@@ -163,4 +165,3 @@ protected:
   std::vector<MooseVariableFEBase *> _diag_save_in;
   std::vector<AuxVariableName> _diag_save_in_strings;
 };
-

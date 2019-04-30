@@ -32,7 +32,8 @@ class Assembly;
 template <typename>
 class MooseVariableFE;
 typedef MooseVariableFE<Real> MooseVariable;
-typedef MooseVariableFE<VectorValue<Real>> VectorMooseVariable;
+typedef MooseVariableFE<RealVectorValue> VectorMooseVariable;
+typedef MooseVariableFE<RealArrayValue> ArrayMooseVariable;
 
 template <>
 InputParameters validParams<KernelBase>();

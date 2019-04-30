@@ -10,13 +10,16 @@
 #pragma once
 
 #include "IntegratedBCBase.h"
+#include "TaggingAssemblyInterface.h"
 #include "MooseVariableInterface.h"
 
 /**
  * Base class for deriving any boundary condition of a integrated type
  */
 template <typename T, ComputeStage compute_stage>
-class ADIntegratedBCTempl : public IntegratedBCBase, public MooseVariableInterface<T>
+class ADIntegratedBCTempl : public IntegratedBCBase,
+                            public TaggingAssemblyInterface<T>,
+                            public MooseVariableInterface<T>
 {
 public:
   ADIntegratedBCTempl(const InputParameters & parameters);
@@ -95,4 +98,3 @@ declareADValidParams(ADVectorIntegratedBC);
 
 #define usingIntegratedBCMembers usingTemplIntegratedBCMembers(Real)
 #define usingVectorIntegratedBCMembers usingTemplIntegratedBCMembers(RealVectorValue)
-

@@ -10,6 +10,7 @@
 #pragma once
 
 #include "KernelBase.h"
+#include "TaggingAssemblyInterface.h"
 
 #include "metaphysicl/numberarray.h"
 #include "metaphysicl/dualnumber.h"
@@ -69,7 +70,9 @@ declareADValidParams(ADKernel);
 declareADValidParams(ADVectorKernel);
 
 template <typename T, ComputeStage compute_stage>
-class ADKernelTempl : public KernelBase, public MooseVariableInterface<T>
+class ADKernelTempl : public KernelBase,
+                      public TaggingAssemblyInterface<T>,
+                      public MooseVariableInterface<T>
 {
 public:
   ADKernelTempl(const InputParameters & parameters);
@@ -86,6 +89,15 @@ public:
 protected:
   /// Compute this Kernel's contribution to the residual at the current quadrature point
   virtual ADResidual computeQpResidual() = 0;
+  /**
+   * Compute this Kernel's contribution to the Jacobian at the current quadrature point
+   */
+  virtual Real computeQpJacobian() { return 0; }
+  /**
+   * This is the virtual that derived classes should override for computing an off-diagonal Jacobian
+   * component.
+   */
+  virtual Real computeQpOffDiagJacobian(unsigned int /*jvar*/) { return 0; }
 
   /**
    * Compute this Kernel's contribution to the Jacobian at the current quadrature point
