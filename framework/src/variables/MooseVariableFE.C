@@ -1153,6 +1153,20 @@ MooseVariableFE<RealArrayValue>::getValue(const Elem * elem,
 
 template <typename OutputType>
 void
+MooseVariableFE<OutputType>::saveDoFValues(const DenseVector<OutputData> & v) const
+{
+  _sys.solution().add_vector(v, _dof_indices);
+}
+
+template <>
+void
+MooseVariableFE<RealArrayValue>::saveDoFValues(const DenseVector<RealArrayValue> &) const
+{
+//  _sys.solution().add_vector(v, _dof_indices);
+}
+
+template <typename OutputType>
+void
 MooseVariableFE<OutputType>::computeValuesHelper(
     QBase *& qrule,
     const FieldVariablePhiValue & phi,
