@@ -105,11 +105,11 @@ protected:
   std::vector<DenseVector<DataType> *> _re_blocks;
 
   /// Kernel blocks Vectors For each Tag
-  std::vector<DenseMatrix<DataType> *> _ke_blocks;
+  std::vector<DenseMatrix<Number> *> _ke_blocks;
 
   /// Holds residual entries as they are accumulated by this Kernel
   DenseVector<DataType> _local_re;
 
-  /// Holds residual entries as they are accumulated by this Kernel
-  DenseMatrix<DataType> _local_ke;
+  /// Holds jacobian entries as they are accumulated by this Kernel
+  DenseMatrix<Number> _local_ke;
 };

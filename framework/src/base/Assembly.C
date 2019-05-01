@@ -1763,6 +1763,65 @@ Assembly::jacobianBlockNeighbor(Moose::DGJacobianType type,
   }
 }
 
+/*
+ * ivar-jvar can be: array-array, array-other, other-other but no other-array
+ * When block diagonal matrix: only 0th entry is used;
+ * otherwise, ivar+i, i = 0,...,count are for the array var.
+ */
+
+DenseMatrix<RealArrayValue> &
+Assembly::jacobianArrayBlock(unsigned int ivar, unsigned int jvar, TagID tag /* = 0 */)
+{
+  _jacobian_block_used[tag][ivar][jvar] = 1;
+  return _sub_Kee_array[tag][ivar][_block_diagonal_matrix ? 0 : jvar];
+}
+
+DenseMatrix<RealArrayValue> &
+Assembly::jacobianArrayBlockNonlocal(unsigned int ivar, unsigned int jvar, TagID tag /* = 0*/)
+{
+  _jacobian_block_nonlocal_used[tag][ivar][jvar] = 1;
+  return _sub_Keg_array[tag][ivar][_block_diagonal_matrix ? 0 : jvar];
+}
+
+DenseMatrix<RealArrayValue> &
+Assembly::jacobianArrayBlockNeighbor(Moose::DGJacobianType type,
+                                unsigned int ivar,
+                                unsigned int jvar,
+                                TagID tag /*=0*/)
+{
+  _jacobian_block_neighbor_used[tag][ivar][jvar] = 1;
+  if (_block_diagonal_matrix)
+  {
+    switch (type)
+    {
+      default:
+      case Moose::ElementElement:
+        return _sub_Kee_array[tag][ivar][0];
+      case Moose::ElementNeighbor:
+        return _sub_Ken_array[tag][ivar][0];
+      case Moose::NeighborElement:
+        return _sub_Kne_array[tag][ivar][0];
+      case Moose::NeighborNeighbor:
+        return _sub_Knn_array[tag][ivar][0];
+    }
+  }
+  else
+  {
+    switch (type)
+    {
+      default:
+      case Moose::ElementElement:
+        return _sub_Kee_array[tag][ivar][jvar];
+      case Moose::ElementNeighbor:
+        return _sub_Ken_array[tag][ivar][jvar];
+      case Moose::NeighborElement:
+        return _sub_Kne_array[tag][ivar][jvar];
+      case Moose::NeighborNeighbor:
+        return _sub_Knn_array[tag][ivar][jvar];
+    }
+  }
+}
+
 void
 Assembly::init(const CouplingMatrix * cm)
 {
@@ -1829,6 +1888,14 @@ Assembly::init(const CouplingMatrix * cm)
   {
     _sub_Re[i].resize(n_vars);
     _sub_Rn[i].resize(n_vars);
+  }
+
+  _sub_Re_array.resize(num_vector_tags);
+  _sub_Rn_array.resize(num_vector_tags);
+  for (MooseIndex(_sub_Re) i = 0; i < _sub_Re_array.size(); i++)
+  {
+    _sub_Re_array[i].resize(n_vars);
+    _sub_Rn_array[i].resize(n_vars);
   }
 
   _cached_residual_values.resize(num_vector_tags);
@@ -1934,10 +2001,23 @@ Assembly::prepareResidual()
 {
   const std::vector<MooseVariableFEBase *> & vars = _sys.getVariables(_tid);
   for (const auto & var : vars)
-    for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+    if (var->count() == 1)
     {
-      _sub_Re[tag][var->number()].resize(var->dofIndices().size());
-      _sub_Re[tag][var->number()].zero();
+      for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+      {
+        _sub_Re[tag][var->number()].resize(var->dofIndices().size());
+        _sub_Re[tag][var->number()].zero();
+      }
+    }
+    else
+    {
+      for (MooseIndex(_sub_Re_array) tag = 0; tag < _sub_Re_array.size(); tag++)
+      {
+        auto ndof = var->dofIndices().size();
+        _sub_Re_array[tag][var->number()].resize(ndof);
+        for (unsigned int i = 0; i < ndof; ++i)
+          _sub_Re_array[tag][var->number()](i).setZero(var->count());
+      }
     }
 }
 
@@ -1992,11 +2072,25 @@ Assembly::prepareVariable(MooseVariableFEBase * var)
       }
     }
   }
+  // jacobian not done yet
 
-  for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+  if (var->count() == 1)
   {
-    _sub_Re[tag][var->number()].resize(var->dofIndices().size());
-    _sub_Re[tag][var->number()].zero();
+    for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+    {
+      _sub_Re[tag][var->number()].resize(var->dofIndices().size());
+      _sub_Re[tag][var->number()].zero();
+    }
+  }
+  else
+  {
+    for (MooseIndex(_sub_Re_array) tag = 0; tag < _sub_Re_array.size(); tag++)
+    {
+      auto ndof = var->dofIndices().size();
+        _sub_Re_array[tag][var->number()].resize(ndof);
+      for (unsigned int i = 0; i < ndof; ++i)
+        _sub_Re_array[tag][var->number()](i).setZero(var->count());
+    }
   }
 }
 
@@ -2078,10 +2172,24 @@ Assembly::prepareBlock(unsigned int ivar,
     _jacobian_block_used[tag][ivar][jvar] = 0;
   }
 
-  for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+  unsigned int count = _sys.getVariable(_tid, ivar).count();
+  if (count == 1)
   {
-    _sub_Re[tag][ivar].resize(dof_indices.size());
-    _sub_Re[tag][ivar].zero();
+    for (MooseIndex(_sub_Re) tag = 0; tag < _sub_Re.size(); tag++)
+    {
+      _sub_Re[tag][ivar].resize(dof_indices.size());
+      _sub_Re[tag][ivar].zero();
+    }
+  }
+  else
+  {
+    for (MooseIndex(_sub_Re_array) tag = 0; tag < _sub_Re_array.size(); tag++)
+    {
+      auto ndof = dof_indices.size();
+        _sub_Re_array[tag][ivar].resize(ndof);
+      for (unsigned int i = 0; i < ndof; ++i)
+        _sub_Re_array[tag][ivar](i).setZero(count);
+    }
   }
 }
 
@@ -2307,7 +2415,7 @@ Assembly::cacheResidualBlock(std::vector<Real> & cached_residual_values,
 }
 
 void
-Assembly::addResidual(NumericVector<Number> & residual, TagID tag_id /* = 0 */)
+Assembly::addResidual(NumericVector<Number> & residual, TagID tag_id)
 {
   const std::vector<MooseVariableFEBase *> & vars = _sys.getVariables(_tid);
   for (const auto & var : vars)
@@ -2324,7 +2432,7 @@ Assembly::addResidual(const std::map<TagName, TagID> & tags)
 }
 
 void
-Assembly::addResidualNeighbor(NumericVector<Number> & residual, TagID tag_id /* = 0 */)
+Assembly::addResidualNeighbor(NumericVector<Number> & residual, TagID tag_id)
 {
   const std::vector<MooseVariableFEBase *> & vars = _sys.getVariables(_tid);
   for (const auto & var : vars)
@@ -2339,6 +2447,42 @@ Assembly::addResidualNeighbor(const std::map<TagName, TagID> & tags)
     if (_sys.hasVector(tag.second))
       addResidualNeighbor(_sys.getVector(tag.second), tag.second);
 }
+
+/*
+void
+Assembly::addArrayResidual(NumericVector<Number> & residual, TagID tag_id)
+{
+  const std::vector<MooseVariableFEBase *> & vars = _sys.getVariables(_tid);
+  for (const auto & var : vars)
+    addArrayResidualBlock(
+        residual, _sub_Re_array[tag_id][var->number()], var->dofIndices(), var->scalingFactor());
+}
+
+void
+Assembly::addArrayResidual(const std::map<TagName, TagID> & tags)
+{
+  for (auto & tag : tags)
+    if (_sys.hasVector(tag.second))
+      addArrayResidual(_sys.getVector(tag.second), tag.second);
+}
+
+void
+Assembly::addArrayResidualNeighbor(NumericVector<Number> & residual, TagID tag_id)
+{
+  const std::vector<MooseVariableFEBase *> & vars = _sys.getVariables(_tid);
+  for (const auto & var : vars)
+    addResidualBlock(
+        residual, _sub_Rn_array[tag_id][var->number()], var->dofIndicesNeighbor(), var->scalingFactor());
+}
+
+void
+Assembly::addArrayResidualNeighbor(const std::map<TagName, TagID> & tags)
+{
+  for (auto & tag : tags)
+    if (_sys.hasVector(tag.second))
+      addArrayResidualNeighbor(_sys.getVector(tag.second), tag.second);
+}
+*/
 
 void
 Assembly::addResidualScalar(TagID tag_id)

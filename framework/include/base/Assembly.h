@@ -667,13 +667,30 @@ public:
     return _sub_Rn[tag_id][var_num];
   }
 
-  DenseMatrix<Number> & jacobianBlock(unsigned int ivar, unsigned int jvar, TagID tag = 0);
+  DenseVector<RealArrayValue> & residualArrayBlock(unsigned int var_num, TagID tag_id = 0)
+  {
+    return _sub_Re_array[tag_id][var_num];
+  }
 
+  DenseVector<RealArrayValue> & residualArrayBlockNeighbor(unsigned int var_num, TagID tag_id = 0)
+  {
+    return _sub_Rn_array[tag_id][var_num];
+  }
+
+  DenseMatrix<Number> & jacobianBlock(unsigned int ivar, unsigned int jvar, TagID tag = 0);
   DenseMatrix<Number> & jacobianBlockNonlocal(unsigned int ivar, unsigned int jvar, TagID tag = 0);
   DenseMatrix<Number> & jacobianBlockNeighbor(Moose::DGJacobianType type,
                                               unsigned int ivar,
                                               unsigned int jvar,
                                               TagID tag = 0);
+
+  DenseMatrix<RealArrayValue> & jacobianArrayBlock(unsigned int ivar, unsigned int jvar, TagID tag = 0);
+  DenseMatrix<RealArrayValue> & jacobianArrayBlockNonlocal(unsigned int ivar, unsigned int jvar, TagID tag = 0);
+  DenseMatrix<RealArrayValue> & jacobianArrayBlockNeighbor(Moose::DGJacobianType type,
+                                              unsigned int ivar,
+                                              unsigned int jvar,
+                                              TagID tag = 0);
+
   void cacheJacobianBlock(DenseMatrix<Number> & jac_block,
                           std::vector<dof_id_type> & idof_indices,
                           std::vector<dof_id_type> & jdof_indices,
@@ -1349,7 +1366,15 @@ protected:
   /// auxiliary vector for scaling residuals (optimization to avoid expensive construction/destruction)
   DenseVector<Number> _tmp_Re;
 
+  /// [tagid][var_id][test][component]
+  std::vector<std::vector<DenseVector<RealArrayValue>>> _sub_Re_array;
+  std::vector<std::vector<DenseVector<RealArrayValue>>> _sub_Rn_array;
+
   /// jacobian contributions <Tag, ivar, jvar>
+  /// When ivar is an array variable, the size of jvar is the total number of standard variables.
+  /// And the dense matrix is in size of ndof * (ndof * count), where count is the number of components
+  /// of the array variable. Note that we cannot let the dense matrix wrap a RealArrayValue like we
+  /// have done in residual vector.
   std::vector<std::vector<std::vector<DenseMatrix<Number>>>> _sub_Kee;
   std::vector<std::vector<std::vector<DenseMatrix<Number>>>> _sub_Keg;
 
@@ -1652,4 +1677,3 @@ Assembly::adGradPhi<RealVectorValue, ComputeStage::JACOBIAN>(
 
 template <>
 const MooseArray<typename Moose::RealType<RESIDUAL>::type> & Assembly::adJxW<RESIDUAL>() const;
-

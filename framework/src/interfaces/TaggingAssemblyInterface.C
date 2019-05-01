@@ -38,6 +38,20 @@ TaggingAssemblyInterface<T>::prepareVectorTag(Assembly & assembly, unsigned int 
   _local_re.zero();
 }
 
+template <>
+void
+TaggingAssemblyInterface<RealArrayValue>::prepareVectorTag(Assembly & assembly, unsigned int ivar)
+{
+  _re_blocks.resize(_vector_tags_ref.size());
+  mooseAssert(_vector_tags_ref.size() >= 1, "we need at least one active tag");
+  auto vector_tag = _vector_tags_ref.begin();
+  for (MooseIndex(_vector_tags_ref) i = 0; i < _vector_tags_ref.size(); i++, ++vector_tag)
+    _re_blocks[i] = &assembly.residualArrayBlock(ivar, *vector_tag);
+
+  _local_re.resize(_re_blocks[0]->size());
+  _local_re.zero();
+}
+
 template <typename T>
 void
 TaggingAssemblyInterface<T>::prepareVectorTagNeighbor(Assembly & assembly, unsigned int ivar)
@@ -47,6 +61,20 @@ TaggingAssemblyInterface<T>::prepareVectorTagNeighbor(Assembly & assembly, unsig
   auto vector_tag = _vector_tags_ref.begin();
   for (MooseIndex(_vector_tags_ref) i = 0; i < _vector_tags_ref.size(); i++, ++vector_tag)
     _re_blocks[i] = &assembly.residualBlockNeighbor(ivar, *vector_tag);
+
+  _local_re.resize(_re_blocks[0]->size());
+  _local_re.zero();
+}
+
+template <>
+void
+TaggingAssemblyInterface<RealArrayValue>::prepareVectorTagNeighbor(Assembly & assembly, unsigned int ivar)
+{
+  _re_blocks.resize(_vector_tags_ref.size());
+  mooseAssert(_vector_tags_ref.size() >= 1, "we need at least one active tag");
+  auto vector_tag = _vector_tags_ref.begin();
+  for (MooseIndex(_vector_tags_ref) i = 0; i < _vector_tags_ref.size(); i++, ++vector_tag)
+    _re_blocks[i] = &assembly.residualArrayBlockNeighbor(ivar, *vector_tag);
 
   _local_re.resize(_re_blocks[0]->size());
   _local_re.zero();
@@ -68,6 +96,22 @@ TaggingAssemblyInterface<T>::prepareMatrixTag(Assembly & assembly,
   _local_ke.zero();
 }
 
+template <>
+void
+TaggingAssemblyInterface<RealArrayValue>::prepareMatrixTag(Assembly & assembly,
+                                                           unsigned int ivar,
+                                                           unsigned int jvar)
+{
+  _ke_blocks.resize(_matrix_tags_ref.size());
+  mooseAssert(_matrix_tags_ref.size() >= 1, "we need at least one active tag");
+  auto mat_vector = _matrix_tags_ref.begin();
+  for (MooseIndex(_matrix_tags_ref) i = 0; i < _matrix_tags_ref.size(); i++, ++mat_vector)
+    _ke_blocks[i] = &assembly.jacobianArrayBlock(ivar, jvar, *mat_vector);
+
+  _local_ke.resize(_ke_blocks[0]->m(), _ke_blocks[0]->n());
+  _local_ke.zero();
+}
+
 template <typename T>
 void
 TaggingAssemblyInterface<T>::prepareMatrixTagNeighbor(Assembly & assembly,
@@ -80,6 +124,23 @@ TaggingAssemblyInterface<T>::prepareMatrixTagNeighbor(Assembly & assembly,
   auto mat_vector = _matrix_tags_ref.begin();
   for (MooseIndex(_matrix_tags_ref) i = 0; i < _matrix_tags_ref.size(); i++, ++mat_vector)
     _ke_blocks[i] = &assembly.jacobianBlockNeighbor(type, ivar, jvar, *mat_vector);
+
+  _local_ke.resize(_ke_blocks[0]->m(), _ke_blocks[0]->n());
+  _local_ke.zero();
+}
+
+template <>
+void
+TaggingAssemblyInterface<RealArrayValue>::prepareMatrixTagNeighbor(Assembly & assembly,
+                                                                   unsigned int ivar,
+                                                                   unsigned int jvar,
+                                                                   Moose::DGJacobianType type)
+{
+  _ke_blocks.resize(_matrix_tags_ref.size());
+  mooseAssert(_matrix_tags_ref.size() >= 1, "we need at least one active tag");
+  auto mat_vector = _matrix_tags_ref.begin();
+  for (MooseIndex(_matrix_tags_ref) i = 0; i < _matrix_tags_ref.size(); i++, ++mat_vector)
+    _ke_blocks[i] = &assembly.jacobianArrayBlockNeighbor(type, ivar, jvar, *mat_vector);
 
   _local_ke.resize(_ke_blocks[0]->m(), _ke_blocks[0]->n());
   _local_ke.zero();
@@ -124,3 +185,4 @@ TaggingAssemblyInterface<T>::~TaggingAssemblyInterface()
 
 template class TaggingAssemblyInterface<Real>;
 template class TaggingAssemblyInterface<RealVectorValue>;
+template class TaggingAssemblyInterface<RealArrayValue>;
