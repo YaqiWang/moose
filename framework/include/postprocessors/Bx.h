@@ -9,24 +9,25 @@
 
 #pragma once
 
-#include "EigenKernel.h"
+#include "ElementPostprocessor.h"
 
-// Forward Declarations
-class MassEigenKernel;
-
-template <>
-InputParameters validParams<MassEigenKernel>();
-
-class MassEigenKernel : public EigenKernel
+class Bx : public ElementPostprocessor
 {
 public:
   static InputParameters validParams();
 
-  MassEigenKernel(const InputParameters & parameters);
+  Bx(const InputParameters & parameters);
+
+  virtual void initialize() override;
+  virtual void execute() override;
+  virtual void threadJoin(const UserObject & y) override;
+  virtual Real getValue() override;
 
 protected:
-  virtual Real computeQpResidual() override;
-  virtual Real computeQpJacobian() override;
+  virtual Real computeIntegral();
 
+  const VariableValue & _u;
+  const VariableTestValue & _test;
   const Real & _coef;
+  Real _integral_value;
 };
