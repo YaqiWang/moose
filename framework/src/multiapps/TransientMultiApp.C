@@ -620,6 +620,29 @@ TransientMultiApp::resetApp(
 }
 
 void
+TransientMultiApp::createApp(unsigned int i, Real time)
+{
+  MultiApp::createApp(i, time);
+
+  // Add these vectors before we call init on the executioner because that will try to restore these
+  // vectors in a restart context
+  if (_interpolate_transfers)
+  {
+    // Get the FEProblemBase for the current MultiApp
+    FEProblemBase & problem = appProblemBase(_first_local_app + i);
+
+    AuxiliarySystem & aux_system = problem.getAuxiliarySystem();
+    System & libmesh_aux_system = aux_system.system();
+
+    // We'll store a copy of the auxiliary system's solution at the old time in here
+    libmesh_aux_system.add_vector("transfer_old", false);
+
+    // This will be where we'll transfer the value to for the "target" time
+    libmesh_aux_system.add_vector("transfer", false);
+  }
+}
+
+void
 TransientMultiApp::setupApp(unsigned int i, Real /*time*/) // FIXME: Should we be passing time?
 {
   auto & app = _apps[i];
@@ -632,20 +655,6 @@ TransientMultiApp::setupApp(unsigned int i, Real /*time*/) // FIXME: Should we b
 
   // Update the file numbers for the outputs from the parent application
   app->getOutputWarehouse().setFileNumbers(_app.getOutputFileNumbers());
-
-  // Add these vectors before we call init on the executioner because that will try to restore these
-  // vectors in a restart context
-  if (_interpolate_transfers)
-  {
-    AuxiliarySystem & aux_system = problem.getAuxiliarySystem();
-    System & libmesh_aux_system = aux_system.system();
-
-    // We'll store a copy of the auxiliary system's solution at the old time in here
-    libmesh_aux_system.add_vector("transfer_old", false);
-
-    // This will be where we'll transfer the value to for the "target" time
-    libmesh_aux_system.add_vector("transfer", false);
-  }
 
   // Call initialization method of Executioner (Note, this preforms the output of the initial time
   // step, if desired)

@@ -297,7 +297,7 @@ protected:
    * @param i The local app number to create.
    * @param start_time The initial time for the App
    */
-  void createApp(unsigned int i, Real start_time);
+  virtual void createApp(unsigned int i, Real start_time);
 
   /**
    * Create an MPI communicator suitable for each app.

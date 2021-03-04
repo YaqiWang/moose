@@ -52,6 +52,9 @@ public:
    */
   Real computeDT();
 
+protected:
+  virtual void createApp(unsigned int i, Real start_time) override;
+
 private:
   /**
    * Setup the executioner for the local app.
