@@ -433,7 +433,7 @@ SolutionUserObject::execute()
 }
 
 void
-SolutionUserObject::initialSetup()
+SolutionUserObject::initt()
 {
 
   // Make sure this only happens once

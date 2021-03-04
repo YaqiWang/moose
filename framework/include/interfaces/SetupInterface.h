@@ -34,6 +34,11 @@ public:
   static InputParameters validParams();
 
   /**
+   * Gets called after problem init
+   */
+  virtual void initt();
+
+  /**
    * Gets called at the beginning of the simulation before this object is asked to do its job
    */
   virtual void initialSetup();

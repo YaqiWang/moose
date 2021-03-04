@@ -442,8 +442,10 @@ MultiApp::restore(bool force)
     // Must be restarting / recovering from main app so hold off on restoring
     // Instead - the restore will happen in sub-apps' initialSetup()
     // Note that _backups was already populated by dataLoad() in the main app
-    if (_fe_problem.getCurrentExecuteOnFlag() == EXEC_INITIAL)
-      return;
+//    if (_fe_problem.getCurrentExecuteOnFlag() == EXEC_INITIAL)
+//      return;
+    bool tmp = _keep_solution_during_restore;
+    _keep_solution_during_restore = _keep_solution_during_restore && _fe_problem.getCurrentExecuteOnFlag() != EXEC_INITIAL;
 
     // We temporarily copy and store solutions for all subapps
     if (_keep_solution_during_restore)
@@ -483,6 +485,8 @@ MultiApp::restore(bool force)
 
       _end_solutions.clear();
     }
+
+    _keep_solution_during_restore = tmp;
   }
   else
   {

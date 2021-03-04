@@ -63,7 +63,7 @@ MooseParsedFunction::vectorValue(Real /*t*/, const Point & /*p*/) const
 }
 
 void
-MooseParsedFunction::initialSetup()
+MooseParsedFunction::initt()
 {
   if (!_function_ptr)
   {
@@ -74,4 +74,10 @@ MooseParsedFunction::initialSetup()
     _function_ptr =
         libmesh_make_unique<MooseParsedFunctionWrapper>(_pfb_feproblem, _value, _vars, _vals, tid);
   }
+}
+
+void
+MooseParsedFunction::initialSetup()
+{
+  initt();
 }

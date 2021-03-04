@@ -819,6 +819,7 @@ FEProblemBase::initialSetup()
   }
 
   // Materials
+  if (!_app.isRecovering())
   if (_all_materials.hasActiveObjects(0))
   {
     for (THREAD_ID tid = 0; tid < n_threads; tid++)
@@ -850,10 +851,12 @@ FEProblemBase::initialSetup()
      */
     cmt(elem_range, true);
 
-    if (_material_props.hasStatefulProperties() || _bnd_material_props.hasStatefulProperties() ||
+  }
+
+  if (_all_materials.hasActiveObjects(0))
+  if (_material_props.hasStatefulProperties() || _bnd_material_props.hasStatefulProperties() ||
         _neighbor_material_props.hasStatefulProperties())
       _has_initialized_stateful = true;
-  }
 
   for (THREAD_ID tid = 0; tid < n_threads; tid++)
   {
@@ -941,16 +944,17 @@ FEProblemBase::initialSetup()
   if (ti)
     ti->initialSetup();
 
-  if (_app.isRestarting() || _app.isRecovering())
+  if ((_app.isRestarting() || _app.isRecovering()) && (_app.isUltimateMaster() || _force_restart))
+//  if (_app.isRestarting() || _app.isRecovering())
   {
-    if (_app.hasCachedBackup()) // This happens when this app is a sub-app and has been given a
-                                // Backup
-    {
-      CONSOLE_TIMED_PRINT("Restoring cached backup");
-
-      _app.restoreCachedBackup();
-    }
-    else
+//    if (_app.hasCachedBackup()) // This happens when this app is a sub-app and has been given a
+//                                // Backup
+//    {
+//      CONSOLE_TIMED_PRINT("Restoring cached backup");
+//
+//      _app.restoreCachedBackup();
+//    }
+//    else
     {
       CONSOLE_TIMED_PRINT("Restoring restart data");
 
@@ -6289,6 +6293,27 @@ FEProblemBase::notifyWhenMeshChanges(MeshChangedInterface * mci)
 void
 FEProblemBase::initElementStatefulProps(const ConstElemRange & elem_range)
 {
+  // Setup the solution states (current, old, etc) in each system based on
+  // its default and the states requested of each of its variables
+  _nl->initSolutionState();
+  _aux->initSolutionState();
+  if (getDisplacedProblem())
+  {
+    getDisplacedProblem()->nlSys().initSolutionState();
+    getDisplacedProblem()->auxSys().initSolutionState();
+  }
+
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    reinitScalars(tid);
+    _functions.initt(tid);
+  }
+
+  std::vector<UserObject *> userobjs;
+  theWarehouse().query().condition<AttribSystem>("UserObject").queryInto(userobjs);
+  for (auto obj : userobjs)
+    obj->initt();
+
   ComputeMaterialsObjectThread cmt(*this,
                                    _material_data,
                                    _bnd_material_data,

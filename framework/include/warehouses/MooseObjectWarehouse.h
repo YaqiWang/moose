@@ -51,6 +51,7 @@ public:
   /**
    * Convenience methods for calling object setup methods.
    */
+  virtual void initt(THREAD_ID tid = 0) const;
   virtual void initialSetup(THREAD_ID tid = 0) const;
   virtual void timestepSetup(THREAD_ID tid = 0) const;
   virtual void subdomainSetup(THREAD_ID tid = 0) const;
@@ -142,6 +143,16 @@ MooseObjectWarehouse<T>::getActiveVariableBlockObjects(unsigned int variable_id,
               "Unable to locate variable kernels for the given variable id: " << variable_id
                                                                               << ".");
   return iter->second.getActiveBlockObjects(block_id, tid);
+}
+
+template <typename T>
+void
+MooseObjectWarehouse<T>::initt(THREAD_ID tid /* = 0*/) const
+{
+  checkThreadID(tid);
+  // Initial Setup should be called on all objects because they may become active later
+  for (const auto & object : _all_objects[tid])
+    object->initt();
 }
 
 template <typename T>

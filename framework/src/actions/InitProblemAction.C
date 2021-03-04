@@ -30,4 +30,7 @@ InitProblemAction::act()
     _problem->init();
   else
     mooseError("Problem doesn't exist in InitProblemAction!");
+
+  // initialize stateful storage so that we can restart
+  _problem->initElementStatefulProps(*_mesh->getActiveLocalElementRange());
 }

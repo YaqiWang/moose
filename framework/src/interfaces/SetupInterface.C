@@ -41,6 +41,11 @@ SetupInterface::SetupInterface(const MooseObject * moose_object)
 SetupInterface::~SetupInterface() {}
 
 void
+SetupInterface::initt()
+{
+}
+
+void
 SetupInterface::initialSetup()
 {
 }

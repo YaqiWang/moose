@@ -253,7 +253,7 @@ public:
   virtual void execute() override;
 
   /// Initialize the System and Mesh objects for the solution being read
-  virtual void initialSetup() override;
+  virtual void initt() override;
 
   const std::vector<std::string> & variableNames() const;
 
