@@ -80,6 +80,7 @@ SamplerTransientMultiApp::initialSetup()
 {
   TIME_SECTION(_perf_initial_setup);
 
+  createApps();
   TransientMultiApp::initialSetup();
 
   // Perform initial backup for the batch sub-applications

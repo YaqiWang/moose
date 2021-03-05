@@ -25,6 +25,7 @@ public:
   SamplerFullSolveMultiApp(const InputParameters & parameters);
   virtual bool solveStep(Real dt, Real target_time, bool auto_advance = true) override;
   virtual void preTransfer(Real dt, Real target_time) override;
+  virtual void initialSetup() override;
 
 protected:
   /// Sampler to utilize for creating MultiApps

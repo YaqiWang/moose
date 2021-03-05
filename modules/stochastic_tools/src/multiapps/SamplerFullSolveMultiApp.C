@@ -70,6 +70,13 @@ SamplerFullSolveMultiApp::SamplerFullSolveMultiApp(const InputParameters & param
   _number_of_sampler_rows = _sampler.getNumberOfRows();
 }
 
+void
+SamplerFullSolveMultiApp::initialSetup()
+{
+  createApps();
+  FullSolveMultiApp::initialSetup();
+}
+
 void SamplerFullSolveMultiApp::preTransfer(Real /*dt*/, Real /*target_time*/)
 {
   if (_mode == StochasticTools::MultiAppMode::NORMAL)
