@@ -109,5 +109,11 @@ SetupMeshCompleteAction::act()
 
     if (_displaced_mesh)
       _displaced_mesh->prepare();
+
+    CheckpointIO cp(_mesh->getMesh(), true);
+    cp.current_processor_ids() = {_mesh->comm().rank()};
+    cp.current_n_processors() = _mesh->comm().size();
+    cp.parallel() = true;
+    cp.write(_app.getOutputFileBase() + ".cpr");
   }
 }
