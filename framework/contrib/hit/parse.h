@@ -164,7 +164,7 @@ public:
   /// the vec-prefixed value retrieval functions assume the node holds a string-typed value holding
   /// whitespace delimited entries of the element type indicated in the function name.
   virtual std::vector<double> vecFloatVal();
-  virtual std::vector<int> vecIntVal();
+  virtual std::vector<int64_t> vecIntVal();
   virtual std::vector<std::string> vecStrVal();
 
   /// addChild adds a node to the ordered set of this node's children.  This node assumes/takes
@@ -260,6 +260,15 @@ Node::paramInner(Node * n)
   return n->intVal();
 }
 template <>
+inline uint64_t
+Node::paramInner(Node * n)
+{
+  if (n->intVal() < 0)
+    throw Error("negative value read from file '" + n->filename() + "' on line " +
+                std::to_string(n->line()));
+  return n->intVal();
+}
+template <>
 inline int
 Node::paramInner(Node * n)
 {
@@ -296,7 +305,11 @@ template <>
 inline std::vector<int>
 Node::paramInner(Node * n)
 {
-  return n->vecIntVal();
+  auto tmp = n->vecIntVal();
+  std::vector<int> vec;
+  for (auto val : tmp)
+    vec.push_back(val);
+  return vec;
 }
 template <>
 inline std::vector<unsigned int>
@@ -304,6 +317,27 @@ Node::paramInner(Node * n)
 {
   auto tmp = n->vecIntVal();
   std::vector<unsigned int> vec;
+  for (auto val : tmp)
+  {
+    if (val < 0)
+      throw Error("negative value read from file '" + n->filename() + "' on line " +
+                  std::to_string(n->line()));
+    vec.push_back(val);
+  }
+  return vec;
+}
+template <>
+inline std::vector<int64_t>
+Node::paramInner(Node * n)
+{
+  return n->vecIntVal();
+}
+template <>
+inline std::vector<uint64_t>
+Node::paramInner(Node * n)
+{
+  auto tmp = n->vecIntVal();
+  std::vector<uint64_t> vec;
   for (auto val : tmp)
   {
     if (val < 0)
@@ -424,7 +458,7 @@ public:
   std::string val();
 
   virtual std::vector<double> vecFloatVal() override;
-  virtual std::vector<int> vecIntVal() override;
+  virtual std::vector<int64_t> vecIntVal() override;
   virtual std::vector<std::string> vecStrVal() override;
   virtual bool boolVal() override;
   virtual int64_t intVal() override;

@@ -1324,11 +1324,12 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
       setscalarvaltype(unsigned int, unsigned int, long);
       setscalarvaltype(unsigned long, unsigned int, long);
       setscalarvaltype(long int, int64_t, long);
-      setscalarvaltype(unsigned long long, unsigned int, long);
+      setscalarvaltype(unsigned long long, int64_t, long);
 
       setscalar(bool, bool);
       setscalar(SubdomainID, int);
       setscalar(BoundaryID, int);
+      setscalar(dof_id_type, int64_t);
 
       // string and string-subclass types
       setscalar(string, string);
@@ -1383,7 +1384,7 @@ Parser::extractParams(const std::string & prefix, InputParameters & p)
 // but presumably uint64_t is the "most standard" way to get a
 // 64-bit unsigned type, so we'll stick with that here.
 #if LIBMESH_DOF_ID_BYTES == 8
-      setvector(uint64_t, int);
+      setvector(uint64_t, int64_t);
 #endif
 
       setvector(SubdomainID, int);
@@ -1538,7 +1539,7 @@ Parser::setScalarParameter(const std::string & full_name,
 
     // handle the case where the user put a number inside quotes
     auto & t = typeid(T);
-    if (t == typeid(int) || t == typeid(unsigned int) || t == typeid(SubdomainID) ||
+    if (t == typeid(int) || t == typeid(unsigned int) || t == typeid(SubdomainID) || t == typeid(dof_id_type) ||
         t == typeid(BoundaryID) || t == typeid(double))
     {
       try

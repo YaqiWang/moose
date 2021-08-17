@@ -232,7 +232,7 @@ Node::vecFloatVal()
 {
   valthrow();
 }
-std::vector<int>
+std::vector<int64_t>
 Node::vecIntVal()
 {
   valthrow();
@@ -548,17 +548,17 @@ Field::val()
   return _val;
 }
 
-std::vector<int>
+std::vector<int64_t>
 Field::vecIntVal()
 {
   auto items = vecStrVal();
-  std::vector<int> vec;
+  std::vector<int64_t> vec;
   for (auto & s : items)
   {
     try
     {
       size_t pos = 0;
-      auto converted_val = std::stoi(s, &pos);
+      auto converted_val = std::stoll(s, &pos);
       if (pos != s.size())
         throw std::invalid_argument("dummy");
 
@@ -566,7 +566,7 @@ Field::vecIntVal()
     }
     catch (...)
     {
-      throw Error("cannot convert '" + s + "' to int");
+      throw Error("cannot convert '" + s + "' to long int");
     }
   }
   return vec;
