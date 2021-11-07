@@ -1,0 +1,11 @@
+[Tests]
+  [./coarse_element_id_test]
+    type = 'Exodiff'
+    input = 'coarse_elem_id.i'
+    exodiff = 'coarse_elem_id_out.e'
+    requirement = 'The system shall include the ability to assign coarse element IDs based on a coarse mesh for elements of a fine mesh.'
+    design = 'meshgenerators/CoarseMeshElementID.md'
+    issues = '#19297'
+    recover = false
+  [../]
+[]
