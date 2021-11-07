@@ -1,0 +1,11 @@
+[Tests]
+  [./element_id_fixup_test]
+    type = 'Exodiff'
+    input = 'coarse_id_fixup.i'
+    exodiff = 'coarse_id_fixup_out.e'
+    requirement = 'The system shall include the ability to fix up the assignment of element IDs so that all elements with an element ID form a connected region through their sides.'
+    design = 'meshgenerators/CoarseElementIDFixup.md'
+    issues = '#19297'
+    recover = false
+  [../]
+[]
