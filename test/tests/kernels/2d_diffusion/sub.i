@@ -65,13 +65,3 @@
   file_base = out
   exodus = true
 []
-
-[MultiApps]
-  [sub]
-    type = FullSolveMultiApp
-    input_files = 'sub.i'
-    no_backup_and_restore = true
-    positions_file = 'position.txt'
-    execute_on = 'INITIAL'
-  []
-[]

@@ -111,6 +111,58 @@ MooseTestApp::registerAll(Factory & f, ActionFactory & af, Syntax & s, bool use_
     registerSyntax("MeshMetaDataDependenceAction", "AutoLineSamplerTest");
     registerSyntax("AppendMeshGeneratorAction", "ModifyMesh/*");
     registerSyntax("CheckMeshMetaDataAction", "CheckMeshMetaData");
+
+    registerTask("auto_initial_setups", true);
+    addTaskDependency("auto_initial_setups", "meta_action");
+
+    registerTask("add_transport_system", false);
+    addTaskDependency("meta_action", "add_transport_system");
+
+    registerTask("after_mesh_setup", false);
+    addTaskDependency("after_mesh_setup", "setup_mesh_complete");
+    addTaskDependency("determine_system_type", "after_mesh_setup");
+
+    registerTask("after_create_problem", false);
+    addTaskDependency("after_create_problem", "create_problem_complete");
+
+    registerTask("add_standard_xml_output", true);
+    addTaskDependency("add_standard_xml_output", "after_create_problem");
+
+    registerTask("before_add_variable", false);
+    addTaskDependency("before_add_variable", "init_displaced_problem");
+    addTaskDependency("add_variable", "before_add_variable");
+    addTaskDependency("add_aux_variable", "before_add_variable");
+
+    registerTask("add_mortar_variable", false);
+    addTaskDependency("add_mortar_variable", "add_variable");
+    addTaskDependency("setup_variable_complete", "add_mortar_variable");
+
+    registerTask("add_face_variable", false);
+    addTaskDependency("add_face_variable", "add_variable");
+    addTaskDependency("setup_variable_complete", "add_face_variable");
+
+    registerTask("set_coupling_matrix", false);
+    addTaskDependency("set_coupling_matrix", "add_ic");
+    addTaskDependency("add_preconditioning", "set_coupling_matrix");
+
+    registerTask("add_aux_material", false);
+    addTaskDependency("add_aux_material", "add_material");
+    addTaskDependency("add_postprocessor", "add_aux_material");
+
+    registerTask("init_face_variable", true);
+    addTaskDependency("init_face_variable", "init_problem");
+
+    registerTask("after_everything", false);
+    addTaskDependency("after_everything", "check_integrity");
+
+    registerTask("auto_final_setups", true);
+    addTaskDependency("auto_final_setups", "check_integrity");
+
+    registerTask("add_coupled_particle", true);
+    addTaskDependency("add_coupled_particle", "meta_action");
+
+    registerMooseObjectTask("multigroup_preconditioning", MoosePreconditioner, false);
+    addTaskDependency("multigroup_preconditioning", "add_material");
   }
 }
 
