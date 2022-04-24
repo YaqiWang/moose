@@ -180,6 +180,8 @@ public:
 
   bool areCoupled(unsigned int ivar, unsigned int jvar, unsigned int nl_sys = 0) const;
 
+  bool uoAuxVerbose() const { return _uo_aux_verbose; }
+
   /**
    * Whether to trust the user coupling matrix even if we want to do things like be paranoid and
    * create a full coupling matrix. See https://github.com/idaholab/moose/issues/16395 for detailed
@@ -2266,6 +2268,9 @@ protected:
 
   /// Determines whether a check to verify material dependencies on every subdomain
   const bool _material_dependency_check;
+
+  /// UO Aux evaluation verbose
+  const bool _uo_aux_verbose;
 
   /// Maximum number of quadrature points used in the problem
   unsigned int _max_qps;

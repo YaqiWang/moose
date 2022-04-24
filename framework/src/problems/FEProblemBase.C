@@ -250,6 +250,8 @@ FEProblemBase::validParams()
 
   params.addParam<std::vector<NonlinearSystemName>>(
       "nl_sys_names", std::vector<NonlinearSystemName>{"nl0"}, "The nonlinear system names");
+  params.addParam<bool>(
+      "uo_aux_verbose", false, "Set to false to disable material dependency check");
 
   params.addPrivateParam<MooseMesh *>("mesh");
 
@@ -322,6 +324,7 @@ FEProblemBase::FEProblemBase(const InputParameters & parameters)
     _material_coverage_check(getParam<bool>("material_coverage_check")),
     _fv_bcs_integrity_check(getParam<bool>("fv_bcs_integrity_check")),
     _material_dependency_check(getParam<bool>("material_dependency_check")),
+    _uo_aux_verbose(getParam<bool>("uo_aux_verbose")),
     _max_qps(std::numeric_limits<unsigned int>::max()),
     _max_shape_funcs(std::numeric_limits<unsigned int>::max()),
     _max_scalar_order(INVALID_ORDER),
@@ -3976,6 +3979,8 @@ FEProblemBase::joinAndFinalize(TheWarehouse::Query query, bool isgen)
       obj->execute();
     }
 
+    if (_uo_aux_verbose)
+      _console << "  " << std::setw(40) << obj->name() << " " << obj->type() << std::endl;
     obj->finalize();
 
     // These have to be stored piecemeal (with every call to this function) because general
@@ -4061,6 +4066,8 @@ FEProblemBase::computeUserObjectsInternal(const ExecFlagType & type,
   // Start the timer here since we have at least one active user object
   std::string compute_uo_tag = "computeUserObjects(" + Moose::stringify(type) + ")";
 
+  if (_uo_aux_verbose)
+    _console << "UO on " << type.name() << " Group" << group << std::endl;
   // Perform Residual/Jacobian setups
   if (type == EXEC_LINEAR)
   {

@@ -786,6 +786,22 @@ AuxiliarySystem::computeElementalVars(ExecFlagType type)
   TIME_SECTION("computeElementalVars", 3);
 
   const MooseObjectWarehouse<AuxKernel> & elemental = _elemental_aux_storage[type];
+
+  if (_fe_problem.uoAuxVerbose())
+  {
+    _console << "Element Aux kernels: " << type.name() << std::endl;
+    for (const auto & bid : _mesh.meshSubdomains())
+    {
+      if (elemental.hasActiveBlockObjects(bid, 0))
+      {
+        _console << " Block " << bid << std::endl;
+        const auto & kernels = elemental.getActiveBlockObjects(bid, 0);
+        for (const auto & aux : kernels)
+          _console << "   " << std::setw(20) << aux->variable().name() << " "
+                   << std::setw(20) << aux->name() << " " << aux->type() << std::endl;
+      }
+    }
+  }
   computeElementalVarsHelper<AuxKernel>(elemental, _elem_std_vars);
 }
 
