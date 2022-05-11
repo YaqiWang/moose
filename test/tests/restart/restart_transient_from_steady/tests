@@ -21,6 +21,33 @@
 
       detail = "and restarting a transient simulation from the previous solution."
     []
+    [restart_trans_from_steady_wrong_mesh]
+      type = 'RunApp'
+      input = 'restart_from_steady.i'
+      cli_args = 'Mesh/nx=1'
+      prereq = 'tests/steady'
+    []
+  []
+  [eigen_tests]
+    requirement = "The system shall support executing a"
+
+    [steady]
+      type = 'Exodiff'
+      input = 'eigen.i'
+      exodiff = 'eigen_out.e'
+      recover = false
+
+      detail = "a steady-state eigenvalue problem"
+    []
+
+    [restart_trans_from_eigen]
+      type = 'Exodiff'
+      input = 'restart_from_eigen.i'
+      exodiff = 'restart_from_eigen_out.e'
+      prereq = 'eigen_tests/steady'
+
+      detail = "and restarting a transient simulation from the previous solution."
+    []
   []
   [steady_with_sub]
     type = 'Exodiff'

@@ -29,6 +29,10 @@
   [../]
 []
 
+[AuxVariables]
+  [v][]
+[]
+
 [BCs]
   [./left]
     type = DirichletBC
