@@ -80,7 +80,7 @@ public:
    */
   void jacobianSetup(THREAD_ID tid = 0) const override;
   void residualSetup(THREAD_ID tid = 0) const override;
-  void setup(const ExecFlagType & exec_flag, THREAD_ID tid = 0) const;
+  void combinedSetup(const ExecFlagType & exec_flag, THREAD_ID tid = 0) const;
   ///@}
 
   /**
@@ -182,7 +182,8 @@ ExecuteMooseObjectWarehouse<T>::residualSetup(THREAD_ID tid /* = 0*/) const
 
 template <typename T>
 void
-ExecuteMooseObjectWarehouse<T>::setup(const ExecFlagType & exec_flag, THREAD_ID tid /* = 0*/) const
+ExecuteMooseObjectWarehouse<T>::combinedSetup(const ExecFlagType & exec_flag,
+                                              THREAD_ID tid /* = 0*/) const
 {
   checkThreadID(tid);
   if (exec_flag == EXEC_INITIAL)

@@ -4039,7 +4039,7 @@ FEProblemBase::executeControls(const ExecFlagType & exec_type)
 
     if (!ordered_controls.empty())
     {
-      _control_warehouse.setup(exec_type);
+      _control_warehouse.combinedSetup(exec_type);
       // Run the controls in the proper order
       for (const auto & control : ordered_controls)
         control->execute();
