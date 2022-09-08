@@ -828,6 +828,7 @@ public:
 
   virtual void initialSetup();
   virtual void timestepSetup();
+  virtual void setup(const ExecFlagType & exec_type);
   virtual void residualSetup();
   virtual void jacobianSetup();
 

@@ -1565,6 +1565,13 @@ SystemBase::timestepSetup()
 }
 
 void
+SystemBase::setup(const ExecFlagType & exec_type)
+{
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+    _vars[tid].setup(exec_type);
+}
+
+void
 SystemBase::subdomainSetup()
 {
   for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)

@@ -62,6 +62,13 @@ OutputWarehouse::timestepSetup()
 }
 
 void
+OutputWarehouse::setup(const ExecFlagType & exec_type)
+{
+  for (const auto & obj : _all_objects)
+    obj->setup(exec_type);
+}
+
+void
 OutputWarehouse::solveSetup()
 {
   for (const auto & obj : _all_objects)

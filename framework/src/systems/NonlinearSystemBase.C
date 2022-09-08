@@ -388,6 +388,60 @@ NonlinearSystemBase::timestepSetup()
 }
 
 void
+NonlinearSystemBase::setup(const ExecFlagType & exec_type)
+{
+  SystemBase::setup(exec_type);
+
+  for (THREAD_ID tid = 0; tid < libMesh::n_threads(); tid++)
+  {
+    _kernels.setup(exec_type, tid);
+    _nodal_kernels.setup(exec_type, tid);
+    _dirac_kernels.setup(exec_type, tid);
+    if (_doing_dg)
+      _dg_kernels.setup(exec_type, tid);
+    _interface_kernels.setup(exec_type, tid);
+    _element_dampers.setup(exec_type, tid);
+    _nodal_dampers.setup(exec_type, tid);
+    _integrated_bcs.setup(exec_type, tid);
+
+    if (_fe_problem.haveFV())
+    {
+      std::vector<FVFluxBC *> bcs;
+      _fe_problem.theWarehouse()
+          .query()
+          .template condition<AttribSystem>("FVFluxBC")
+          .template condition<AttribThread>(tid)
+          .queryInto(bcs);
+
+      std::vector<FVInterfaceKernel *> iks;
+      _fe_problem.theWarehouse()
+          .query()
+          .template condition<AttribSystem>("FVInterfaceKernel")
+          .template condition<AttribThread>(tid)
+          .queryInto(iks);
+
+      std::vector<FVFluxKernel *> kernels;
+      _fe_problem.theWarehouse()
+          .query()
+          .template condition<AttribSystem>("FVFluxKernel")
+          .template condition<AttribThread>(tid)
+          .queryInto(kernels);
+
+      for (auto * bc : bcs)
+        bc->setup(exec_type);
+      for (auto * ik : iks)
+        ik->setup(exec_type);
+      for (auto * kernel : kernels)
+        kernel->setup(exec_type);
+    }
+  }
+  _scalar_kernels.setup(exec_type);
+  _constraints.setup(exec_type);
+  _general_dampers.setup(exec_type);
+  _nodal_bcs.setup(exec_type);
+}
+
+void
 NonlinearSystemBase::setDecomposition(const std::vector<std::string> & splits)
 {
   /// Although a single top-level split is allowed in Problem, treat it as a list of splits for conformity with the Split input syntax.

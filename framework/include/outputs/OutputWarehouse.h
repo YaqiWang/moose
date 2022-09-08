@@ -265,6 +265,12 @@ private:
   void timestepSetup();
 
   /**
+   * Calls the setup function for each of the output objects
+   * @see FEProblemBase::setup(const ExecFlagType & exec_type)
+   */
+  void setup(const ExecFlagType & exec_type);
+
+  /**
    * Calls the jacobianSetup function for each of the output objects
    * @see FEProblemBase::computeJacobian
    */

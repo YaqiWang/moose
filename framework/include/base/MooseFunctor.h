@@ -342,6 +342,7 @@ public:
   virtual void residualSetup();
   virtual void jacobianSetup();
   virtual void timestepSetup();
+  virtual void setup(const ExecFlagType & exec_type);
 
   /**
    * Set how often to clear the functor evaluation cache
@@ -854,6 +855,14 @@ FunctorBase<T>::timestepSetup()
 
 template <typename T>
 void
+FunctorBase<T>::setup(const ExecFlagType & exec_type)
+{
+  if (_clearance_schedule.count(exec_type))
+    clearCacheData();
+}
+
+template <typename T>
+void
 FunctorBase<T>::residualSetup()
 {
   if (_clearance_schedule.count(EXEC_LINEAR))
@@ -981,6 +990,7 @@ public:
    * Virtual methods meant to be used for handling functor evaluation cache clearance
    */
   virtual void timestepSetup() = 0;
+  virtual void setup(const ExecFlagType & /*exec_type*/) = 0;
   virtual void residualSetup() = 0;
   virtual void jacobianSetup() = 0;
   virtual bool wrapsNull() const = 0;
@@ -1085,6 +1095,11 @@ public:
   {
     if (_owned)
       _owned->timestepSetup();
+  }
+  void setup(const ExecFlagType & exec_type) override
+  {
+    if (_owned)
+      _owned->setup(exec_type);
   }
   void residualSetup() override
   {

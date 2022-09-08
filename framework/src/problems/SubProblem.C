@@ -1015,6 +1015,14 @@ SubProblem::timestepSetup()
 }
 
 void
+SubProblem::setup(const ExecFlagType & exec_type)
+{
+  for (auto & map : _functors)
+    for (auto & pr : map)
+      pr.second->setup(exec_type);
+}
+
+void
 SubProblem::residualSetup()
 {
   for (auto & map : _functors)
