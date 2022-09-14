@@ -40,26 +40,31 @@ SetupInterface::~SetupInterface() {}
 void
 SetupInterface::initialSetup()
 {
+  // remove
 }
 
 void
 SetupInterface::timestepSetup()
 {
+  // remove
 }
 
 void
 SetupInterface::jacobianSetup()
 {
+  // remove
 }
 
 void
 SetupInterface::residualSetup()
 {
+  // remove
 }
 
 void
 SetupInterface::subdomainSetup()
 {
+  // remove
 }
 
 void
