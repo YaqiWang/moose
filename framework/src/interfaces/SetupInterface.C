@@ -71,6 +71,8 @@ SetupInterface::setup(const ExecFlagType & exec_type)
     jacobianSetup();
   else if (exec_type == EXEC_LINEAR)
     residualSetup();
+  else if (exec_type == EXEC_INITIAL)
+    initialSetup();
 }
 
 const ExecFlagEnum &

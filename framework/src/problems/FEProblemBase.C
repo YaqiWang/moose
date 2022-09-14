@@ -593,7 +593,7 @@ FEProblemBase::initialSetup()
 {
   TIME_SECTION("initialSetup", 2, "Performing Initial Setup");
 
-  SubProblem::initialSetup();
+  unsigned int n_threads = libMesh::n_threads();
 
   if (_skip_exception_check)
     mooseWarning("MOOSE may fail to catch an exception when the \"skip_exception_check\" parameter "
@@ -714,8 +714,14 @@ FEProblemBase::initialSetup()
     }
   }
 
-  // Perform output related setups
-  _app.getOutputWarehouse().initialSetup();
+  {
+    TIME_SECTION("initializingFunctions", 5, "Initializing Functions");
+
+    // Call the initialSetup methods for functions
+    for (THREAD_ID tid = 0; tid < n_threads; tid++)
+      reinitScalars(tid);
+  }
+  setup(EXEC_INITIAL);
 
   // Flush all output to _console that occur during construction and initialization of objects
   _app.getOutputWarehouse().mooseConsole();
@@ -748,8 +754,6 @@ FEProblemBase::initialSetup()
     }
   }
 
-  unsigned int n_threads = libMesh::n_threads();
-
   // UserObject initialSetup
   std::set<std::string> depend_objects_ic = _ics.getDependObjects();
   std::set<std::string> depend_objects_aux = _aux->getDependObjects();
@@ -761,9 +765,6 @@ FEProblemBase::initialSetup()
   groupUserObjects(
       theWarehouse(), getAuxiliarySystem(), _app.getExecuteOnEnum(), userobjs, depend_objects_ic);
 
-  for (auto obj : userobjs)
-    obj->initialSetup();
-
   // check if jacobian calculation is done in userobject
   for (THREAD_ID tid = 0; tid < n_threads; ++tid)
     checkUserObjectJacobianRequirement(tid);
@@ -772,26 +773,6 @@ FEProblemBase::initialSetup()
   checkNonlocalCoupling();
   if (_requires_nonlocal_coupling)
     setVariableAllDoFMap(_uo_jacobian_moose_vars[0]);
-
-  {
-    TIME_SECTION("initializingFunctions", 5, "Initializing Functions");
-
-    // Call the initialSetup methods for functions
-    for (THREAD_ID tid = 0; tid < n_threads; tid++)
-    {
-      reinitScalars(tid); // initialize scalars so they are properly sized for use as input into
-                          // ParsedFunctions
-      _functions.initialSetup(tid);
-    }
-  }
-
-  {
-    TIME_SECTION("initializingRandomObjects", 5, "Initializing Random Objects");
-
-    // Random interface objects
-    for (const auto & it : _random_data_objects)
-      it.second->updateSeeds(EXEC_INITIAL);
-  }
 
   if (!_app.isRecovering())
   {
@@ -819,9 +800,6 @@ FEProblemBase::initialSetup()
       // Sort the Material objects, these will be actually computed by MOOSE in reinit methods.
       _materials.sort(tid);
       _interface_materials.sort(tid);
-
-      // Call initialSetup on all material objects
-      _all_materials.initialSetup(tid);
 
       // Discrete materials may insert additional dependencies on materials during the initial
       // setup. Therefore we resolve the dependencies once more, now with the additional
@@ -854,12 +832,7 @@ FEProblemBase::initialSetup()
   }
 
   for (THREAD_ID tid = 0; tid < n_threads; tid++)
-  {
-    _internal_side_indicators.initialSetup(tid);
-    _indicators.initialSetup(tid);
     _markers.sort(tid);
-    _markers.initialSetup(tid);
-  }
 
 #ifdef LIBMESH_ENABLE_AMR
 
@@ -885,16 +858,6 @@ FEProblemBase::initialSetup()
     if (haveXFEM())
       updateMeshXFEM();
   }
-
-  // Call initialSetup on the nonlinear system
-  _nl->initialSetup();
-
-  // Auxilary variable initialSetup calls
-  _aux->initialSetup();
-
-  if (_displaced_problem)
-    // initialSetup for displaced systems
-    _displaced_problem->initialSetup();
 
   _nl->setSolution(*(_nl->system().current_local_solution.get()));
 
@@ -956,44 +919,8 @@ FEProblemBase::initialSetup()
 
   // HUGE NOTE: MultiApp initialSetup() MUST... I repeat MUST be _after_ main-app restartable data
   // has been restored
-
-  // Call initialSetup on the MultiApps
   if (_multi_apps.hasObjects())
-  {
-    TIME_SECTION("initialSetupMultiApps", 2, "Initializing MultiApps", false);
-    _multi_apps.initialSetup();
-  }
-
-  // Call initialSetup on the transfers
-  {
-    TIME_SECTION("initialSetupTransfers", 2, "Initializing Transfers");
-
-    _transfers.initialSetup();
-
-    // Call initialSetup on the MultiAppTransfers to be executed on TO_MULTIAPP
-    const auto & to_multi_app_objects = _to_multi_app_transfers.getActiveObjects();
-    for (const auto & transfer : to_multi_app_objects)
-    {
-      transfer->setCurrentDirection(Transfer::DIRECTION::TO_MULTIAPP);
-      transfer->initialSetup();
-    }
-
-    // Call initialSetup on the MultiAppTransfers to be executed on FROM_MULTIAPP
-    const auto & from_multi_app_objects = _from_multi_app_transfers.getActiveObjects();
-    for (const auto & transfer : from_multi_app_objects)
-    {
-      transfer->setCurrentDirection(Transfer::DIRECTION::FROM_MULTIAPP);
-      transfer->initialSetup();
-    }
-
-    // Call initialSetup on the MultiAppTransfers to be executed on BETWEEN_MULTIAPP
-    const auto & between_multi_app_objects = _between_multi_app_transfers.getActiveObjects();
-    for (const auto & transfer : between_multi_app_objects)
-    {
-      transfer->setCurrentDirection(Transfer::DIRECTION::BETWEEN_MULTIAPP);
-      transfer->initialSetup();
-    }
-  }
+    _multi_apps.setup(EXEC_INITIAL);
 
   if (_boundary_restricted_node_integrity_check)
   {
@@ -1050,6 +977,9 @@ FEProblemBase::initialSetup()
     Threads::parallel_reduce(bnd_elems, beict);
   }
 
+  // Control Logic
+  executeControls(EXEC_INITIAL);
+
   if (!_app.isRecovering())
   {
     execTransfers(EXEC_INITIAL);
@@ -1102,9 +1032,6 @@ FEProblemBase::initialSetup()
     Threads::parallel_reduce(elem_range, cmt);
   }
 
-  // Control Logic
-  executeControls(EXEC_INITIAL);
-
   // Scalar variables need to reinited for the initial conditions to be available for output
   for (unsigned int tid = 0; tid < n_threads; tid++)
     reinitScalars(tid);
@@ -1120,13 +1047,6 @@ FEProblemBase::initialSetup()
     setNonlocalCouplingMatrix();
     for (THREAD_ID tid = 0; tid < n_threads; ++tid)
       _assembly[tid]->initNonlocalCoupling();
-  }
-
-  {
-    TIME_SECTION("lineSearchInitialSetup", 5, "Initializing Line Search");
-
-    if (_line_search)
-      _line_search->initialSetup();
   }
 
   // Perform Reporter get/declare check
@@ -3745,7 +3665,7 @@ FEProblemBase::setup(const ExecFlagType & exec_type)
 
   // Random interface objects
   // We might rename updateSeeds function with setup for naming consistency in the future
-  if (exec_type == EXEC_TIMESTEP_BEGIN)
+  if (exec_type == EXEC_TIMESTEP_BEGIN || exec_type == EXEC_INITIAL)
     for (const auto & it : _random_data_objects)
       it.second->updateSeeds(exec_type);
 
@@ -3779,6 +3699,37 @@ FEProblemBase::setup(const ExecFlagType & exec_type)
   if (_requires_nonlocal_coupling)
     if (_nonlocal_kernels.hasActiveObjects() || _nonlocal_integrated_bcs.hasActiveObjects())
       _has_nonlocal_coupling = true;
+
+  if (exec_type != EXEC_INITIAL)
+    // Call initialSetup on the MultiApps
+    if (_multi_apps.hasObjects())
+      _multi_apps.setup(exec_type);
+
+  _transfers.setup(exec_type);
+
+  // Call initialSetup on the MultiAppTransfers to be executed on TO_MULTIAPP
+  const auto & to_multi_app_objects = _to_multi_app_transfers.getActiveObjects();
+  for (const auto & transfer : to_multi_app_objects)
+  {
+    transfer->setCurrentDirection(Transfer::DIRECTION::TO_MULTIAPP);
+    transfer->setup(exec_type);
+  }
+
+  // Call initialSetup on the MultiAppTransfers to be executed on FROM_MULTIAPP
+  const auto & from_multi_app_objects = _from_multi_app_transfers.getActiveObjects();
+  for (const auto & transfer : from_multi_app_objects)
+  {
+    transfer->setCurrentDirection(Transfer::DIRECTION::FROM_MULTIAPP);
+    transfer->setup(exec_type);
+  }
+
+  // Call initialSetup on the MultiAppTransfers to be executed on BETWEEN_MULTIAPP
+  const auto & between_multi_app_objects = _between_multi_app_transfers.getActiveObjects();
+  for (const auto & transfer : between_multi_app_objects)
+  {
+    transfer->setCurrentDirection(Transfer::DIRECTION::BETWEEN_MULTIAPP);
+    transfer->setup(exec_type);
+  }
 }
 
 void
