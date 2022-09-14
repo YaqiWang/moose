@@ -73,6 +73,7 @@ SetupInterface::setup(const ExecFlagType & exec_type)
     residualSetup();
   else if (exec_type == EXEC_INITIAL)
     initialSetup();
+  // subdomainSetup requires us to consider whether an object is block restrictable or not
 }
 
 const ExecFlagEnum &
