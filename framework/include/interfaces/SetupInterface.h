@@ -57,7 +57,7 @@ public:
   /**
    * Gets called in FEProblemBase::execute()
    */
-  virtual void setup(const ExecFlagType & /*exec_type*/) {}
+  virtual void setup(const ExecFlagType & exec_type);
 
   /**
    * Return the execute on MultiMooseEnum for this object.

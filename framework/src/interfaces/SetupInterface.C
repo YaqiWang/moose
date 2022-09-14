@@ -62,6 +62,17 @@ SetupInterface::subdomainSetup()
 {
 }
 
+void
+SetupInterface::setup(const ExecFlagType & exec_type)
+{
+  if (exec_type == EXEC_TIMESTEP_BEGIN)
+    timestepSetup();
+  else if (exec_type == EXEC_NONLINEAR)
+    jacobianSetup();
+  else if (exec_type == EXEC_LINEAR)
+    residualSetup();
+}
+
 const ExecFlagEnum &
 SetupInterface::getExecuteOnEnum() const
 {

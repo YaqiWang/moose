@@ -162,7 +162,7 @@
     # Tests that using 'output_on' inside console disables flag to show linear residuals
     type = RunApp
     input = 'console_print_toggles.i'
-    expect_out = '\s*0\sNonlinear[^\n]*?\n\s*1\sNonlinear'
+    expect_out = '\s*1\sNonlinear[^\n]*?\n\s*2\sNonlinear'
     valgrind = NONE
     cli_args = "Outputs/console/execute_on='nonlinear final failed timestep_end' Outputs/print_linear_converged_reason=false"
 

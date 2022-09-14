@@ -1138,101 +1138,9 @@ FEProblemBase::initialSetup()
 void
 FEProblemBase::timestepSetup()
 {
-  SubProblem::timestepSetup();
+  mooseDeprecated("Please use setup(EXEC_TIMESTEP_BEGIN)");
 
-  if (_t_step > 1 && _num_grid_steps)
-  {
-    MeshRefinement mesh_refinement(_mesh);
-    std::unique_ptr<MeshRefinement> displaced_mesh_refinement(nullptr);
-    if (_displaced_mesh)
-      displaced_mesh_refinement = std::make_unique<MeshRefinement>(*_displaced_mesh);
-
-    for (MooseIndex(_num_grid_steps) i = 0; i < _num_grid_steps; ++i)
-    {
-      if (_displaced_problem)
-        // If the DisplacedProblem is active, undisplace the DisplacedMesh in preparation for
-        // refinement.  We can't safely refine the DisplacedMesh directly, since the Hilbert keys
-        // computed on the inconsistenly-displaced Mesh are different on different processors,
-        // leading to inconsistent Hilbert keys.  We must do this before the undisplaced Mesh is
-        // coarsensed, so that the element and node numbering is still consistent. We also have to
-        // make sure this is done during every step of coarsening otherwise different partitions
-        // will be generated for the reference and displaced meshes (even for replicated)
-        _displaced_problem->undisplaceMesh();
-
-      mesh_refinement.uniformly_coarsen();
-      if (_displaced_mesh)
-        displaced_mesh_refinement->uniformly_coarsen();
-
-      // Mark this as an intermediate change because we do not yet want to reinit_systems. E.g. we
-      // need things to happen in the following order for the undisplaced problem:
-      // u1) EquationSystems::reinit_solutions. This will restrict the solution vectors and then
-      //     contract the mesh
-      // u2) MooseMesh::meshChanged. This will update the node/side lists and other
-      //     things which needs to happen after the contraction
-      // u3) GeometricSearchData::reinit. Once the node/side lists are updated we can perform our
-      //     geometric searches which will aid in determining sparsity patterns
-      //
-      // We do these things for the displaced problem (if it exists)
-      // d1) EquationSystems::reinit. Restrict the displaced problem vector copies and then contract
-      //     the mesh. It's safe to do a full reinit with the displaced because there are no
-      //     matrices that sparsity pattern calculations will be conducted for
-      // d2) MooseMesh::meshChanged. This will update the node/side lists and other
-      //     things which needs to happen after the contraction
-      // d3) UpdateDisplacedMeshThread::operator(). Re-displace the mesh using the *displaced*
-      //     solution vector copy because we don't know the state of the reference solution vector.
-      //     It's safe to use the displaced copy because we are outside of a non-linear solve,
-      //     and there is no concern about differences between solution and current_local_solution
-      // d4) GeometricSearchData::reinit. With the node/side lists updated and the mesh
-      //     re-displaced, we can perform our geometric searches, which will aid in determining the
-      //     sparsity pattern of the matrix held by the libMesh::ImplicitSystem held by the
-      //     NonlinearSystem held by this
-      meshChangedHelper(/*intermediate_change=*/true);
-    }
-
-    // u4) Now that all the geometric searches have been done (both undisplaced and displaced),
-    //     we're ready to update the sparsity pattern
-    _eq.reinit_systems();
-  }
-
-  if (_line_search)
-    _line_search->timestepSetup();
-
-  // Random interface objects
-  for (const auto & it : _random_data_objects)
-    it.second->updateSeeds(EXEC_TIMESTEP_BEGIN);
-
-  unsigned int n_threads = libMesh::n_threads();
-  for (THREAD_ID tid = 0; tid < n_threads; tid++)
-  {
-    _all_materials.timestepSetup(tid);
-    _functions.timestepSetup(tid);
-  }
-
-  _aux->timestepSetup();
-  _nl->timestepSetup();
-
-  if (_displaced_problem)
-    // timestepSetup for displaced systems
-    _displaced_problem->timestepSetup();
-
-  for (THREAD_ID tid = 0; tid < n_threads; tid++)
-  {
-    _internal_side_indicators.timestepSetup(tid);
-    _indicators.timestepSetup(tid);
-    _markers.timestepSetup(tid);
-  }
-
-  std::vector<UserObject *> userobjs;
-  theWarehouse().query().condition<AttribSystem>("UserObject").queryIntoUnsorted(userobjs);
-  for (auto obj : userobjs)
-    obj->timestepSetup();
-
-  // Timestep setup of output objects
-  _app.getOutputWarehouse().timestepSetup();
-
-  if (_requires_nonlocal_coupling)
-    if (_nonlocal_kernels.hasActiveObjects() || _nonlocal_integrated_bcs.hasActiveObjects())
-      _has_nonlocal_coupling = true;
+  setup(EXEC_TIMESTEP_BEGIN);
 }
 
 unsigned int
@@ -3778,8 +3686,68 @@ FEProblemBase::setup(const ExecFlagType & exec_type)
 {
   SubProblem::setup(exec_type);
 
+  if (exec_type == EXEC_TIMESTEP_BEGIN && _t_step > 1 && _num_grid_steps)
+  {
+    MeshRefinement mesh_refinement(_mesh);
+    std::unique_ptr<MeshRefinement> displaced_mesh_refinement(nullptr);
+    if (_displaced_mesh)
+      displaced_mesh_refinement = std::make_unique<MeshRefinement>(*_displaced_mesh);
+
+    for (MooseIndex(_num_grid_steps) i = 0; i < _num_grid_steps; ++i)
+    {
+      if (_displaced_problem)
+        // If the DisplacedProblem is active, undisplace the DisplacedMesh in preparation for
+        // refinement.  We can't safely refine the DisplacedMesh directly, since the Hilbert keys
+        // computed on the inconsistenly-displaced Mesh are different on different processors,
+        // leading to inconsistent Hilbert keys.  We must do this before the undisplaced Mesh is
+        // coarsensed, so that the element and node numbering is still consistent. We also have to
+        // make sure this is done during every step of coarsening otherwise different partitions
+        // will be generated for the reference and displaced meshes (even for replicated)
+        _displaced_problem->undisplaceMesh();
+
+      mesh_refinement.uniformly_coarsen();
+      if (_displaced_mesh)
+        displaced_mesh_refinement->uniformly_coarsen();
+
+      // Mark this as an intermediate change because we do not yet want to reinit_systems. E.g. we
+      // need things to happen in the following order for the undisplaced problem:
+      // u1) EquationSystems::reinit_solutions. This will restrict the solution vectors and then
+      //     contract the mesh
+      // u2) MooseMesh::meshChanged. This will update the node/side lists and other
+      //     things which needs to happen after the contraction
+      // u3) GeometricSearchData::reinit. Once the node/side lists are updated we can perform our
+      //     geometric searches which will aid in determining sparsity patterns
+      //
+      // We do these things for the displaced problem (if it exists)
+      // d1) EquationSystems::reinit. Restrict the displaced problem vector copies and then contract
+      //     the mesh. It's safe to do a full reinit with the displaced because there are no
+      //     matrices that sparsity pattern calculations will be conducted for
+      // d2) MooseMesh::meshChanged. This will update the node/side lists and other
+      //     things which needs to happen after the contraction
+      // d3) UpdateDisplacedMeshThread::operator(). Re-displace the mesh using the *displaced*
+      //     solution vector copy because we don't know the state of the reference solution vector.
+      //     It's safe to use the displaced copy because we are outside of a non-linear solve,
+      //     and there is no concern about differences between solution and current_local_solution
+      // d4) GeometricSearchData::reinit. With the node/side lists updated and the mesh
+      //     re-displaced, we can perform our geometric searches, which will aid in determining the
+      //     sparsity pattern of the matrix held by the libMesh::ImplicitSystem held by the
+      //     NonlinearSystem held by this
+      meshChangedHelper(/*intermediate_change=*/true);
+    }
+
+    // u4) Now that all the geometric searches have been done (both undisplaced and displaced),
+    //     we're ready to update the sparsity pattern
+    _eq.reinit_systems();
+  }
+
   if (_line_search)
     _line_search->setup(exec_type);
+
+  // Random interface objects
+  // We might rename updateSeeds function with setup for naming consistency in the future
+  if (exec_type == EXEC_TIMESTEP_BEGIN)
+    for (const auto & it : _random_data_objects)
+      it.second->updateSeeds(exec_type);
 
   unsigned int n_threads = libMesh::n_threads();
   for (THREAD_ID tid = 0; tid < n_threads; tid++)
@@ -3807,6 +3775,10 @@ FEProblemBase::setup(const ExecFlagType & exec_type)
     obj->setup(exec_type);
 
   _app.getOutputWarehouse().setup(exec_type);
+
+  if (_requires_nonlocal_coupling)
+    if (_nonlocal_kernels.hasActiveObjects() || _nonlocal_integrated_bcs.hasActiveObjects())
+      _has_nonlocal_coupling = true;
 }
 
 void
@@ -7569,17 +7541,15 @@ FEProblemBase::resizeMaterialData(const Moose::MaterialDataType data_type,
 void
 FEProblemBase::residualSetup()
 {
-  SubProblem::residualSetup();
-  if (_displaced_problem)
-    _displaced_problem->residualSetup();
+  mooseDeprecated("Please use setup(EXEC_LINEAR)");
+  setup(EXEC_LINEAR);
 }
 
 void
 FEProblemBase::jacobianSetup()
 {
-  SubProblem::jacobianSetup();
-  if (_displaced_problem)
-    _displaced_problem->jacobianSetup();
+  mooseDeprecated("Please use setup(EXEC_NONLINEAR)");
+  setup(EXEC_NONLINEAR);
 }
 
 MooseAppCoordTransform &
