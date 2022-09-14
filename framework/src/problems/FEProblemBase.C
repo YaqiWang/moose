@@ -3604,6 +3604,8 @@ FEProblemBase::executeAllObjects(const ExecFlagType & /*exec_type*/)
 void
 FEProblemBase::setup(const ExecFlagType & exec_type)
 {
+  executeControls(exec_type);
+
   SubProblem::setup(exec_type);
 
   if (exec_type == EXEC_TIMESTEP_BEGIN && _t_step > 1 && _num_grid_steps)
@@ -3737,9 +3739,6 @@ FEProblemBase::execute(const ExecFlagType & exec_type)
 {
   // Set the current flag
   setCurrentExecuteOnFlag(exec_type);
-
-  if (exec_type != EXEC_INITIAL)
-    executeControls(exec_type);
 
   // intentially call this after executing controls because the setups may rely on the controls
   // FIXME: we skip the following flags for now because they have dedicated setup functions in
