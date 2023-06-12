@@ -12,7 +12,6 @@
 
 [Variables]
   [./temp]
-#    initial_condition = 1000000
   [../]
 []
 
@@ -48,7 +47,7 @@
   petsc_options_value = 'hypre boomeramg 100'
 
   start_time = 0
-  end_time = 3
+  end_time = 10
   dt = 1.0
 
   nl_abs_tol = 1e-7
@@ -59,12 +58,10 @@
   [./temp_fuel_avg]
     type = ElementAverageValue
     variable = temp
-    block = '0'
     execute_on = 'initial timestep_end'
   [../]
   [./pwr_density]
     type = ElementIntegralVariablePostprocessor
-    block = '0'
     variable = power_density
     execute_on = 'initial timestep_end'
   [../]
