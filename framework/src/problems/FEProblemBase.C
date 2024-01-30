@@ -5373,6 +5373,11 @@ FEProblemBase::setActiveMaterialProperties(const std::set<unsigned int> & mat_pr
                                            const THREAD_ID tid)
 {
   _active_material_property_ids[tid] = mat_prop_ids;
+
+  // update material data for tracking active material properties
+  _material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
+  _bnd_material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
+  _neighbor_material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
 }
 
 const std::set<unsigned int> &

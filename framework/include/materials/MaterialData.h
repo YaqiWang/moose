@@ -191,6 +191,33 @@ public:
    */
   void eraseProperty(const Elem * elem);
 
+  /**
+   * Set flags indicating active material properties to be called during element loops
+   */
+  void setActiveMaterialProperties(const std::set<unsigned int> & mat_prop_ids)
+  {
+    for (const auto i : index_range(_active_prop_indicator))
+      _active_prop_indicator[i] = false;
+    // Note all instances of MaterialData use the same MaterialPropertyRegistry
+    // i.e. the same property id is shared by all instances.
+    // However, a material data may not declare some of properties.
+    for (const auto & id : mat_prop_ids)
+      if (id < _active_prop_indicator.size())
+        _active_prop_indicator[id] = true;
+  }
+
+  /**
+   * Check whether a material property is active within an element loop
+   */
+  bool isPropertyActive(const unsigned int prop_id) const
+  {
+    mooseAssert(
+        prop_id < _active_prop_indicator.size(),
+        "Material property id is out of bounds when querrying whether the property is active.");
+    mooseAssert(props(0).hasValue(prop_id), "Material property has not be declared.");
+    return _active_prop_indicator[prop_id];
+  }
+
 private:
   /// Reference to the MaterialStorage class
   MaterialPropertyStorage & _storage;
@@ -203,6 +230,9 @@ private:
 
   /// The underlying property data
   std::array<MaterialProperties, max_state + 1> _props;
+
+  /// Flags on whether properties are active to be set by element loops
+  std::vector<bool> _active_prop_indicator;
 
   unsigned int addPropertyHelper(const std::string & prop_name, const unsigned int state);
 
@@ -271,7 +301,10 @@ MaterialData::getPropertyHelper(const std::string & prop_name,
   {
     auto & entry = props(state_i);
     if (entry.size() < size)
+    {
       entry.resize(size, {});
+      _active_prop_indicator.resize(size, true);
+    }
     if (!entry.hasValue(prop_id))
     {
       std::unique_ptr<PropertyValue> value =

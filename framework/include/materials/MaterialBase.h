@@ -277,6 +277,14 @@ protected:
 
   virtual const QBase & qRule() const = 0;
 
+  /**
+   * Check whether a material property is active through material data
+   */
+  bool isPropertyActive(const unsigned int prop_id) const
+  {
+    return materialData().isPropertyActive(prop_id);
+  }
+
   SubProblem & _subproblem;
 
   FEProblemBase & _fe_problem;
