@@ -117,6 +117,11 @@
     prop_names  = 'diff1 diff2 r1 r2'
     prop_values = '2 3 4 5'
   []
+  [dummy]
+    type = ActiveGenericConstantMaterial
+    prop_names  = 'diff3'
+    prop_values = '0'
+  []
   [bnd]
     type = ActiveGenericConstantMaterial
     boundary = 3
