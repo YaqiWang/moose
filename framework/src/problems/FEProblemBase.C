@@ -3492,6 +3492,8 @@ FEProblemBase::prepareMaterials(SubdomainID blk_id, const THREAD_ID tid)
   {
     _materials.updateBoundaryVariableDependency(id, needed_moose_vars, tid);
     _materials.updateBoundaryMatPropDependency(id, needed_mat_props, tid);
+    _interface_materials.updateBoundaryVariableDependency(id, needed_moose_vars, tid);
+    _interface_materials.updateBoundaryMatPropDependency(id, needed_mat_props, tid);
   }
 
   const std::set<MooseVariableFEBase *> & current_active_elemental_moose_variables =
@@ -5378,6 +5380,14 @@ FEProblemBase::setActiveMaterialProperties(const std::set<unsigned int> & mat_pr
   _material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
   _bnd_material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
   _neighbor_material_props.getMaterialData(tid).setActiveMaterialProperties(mat_prop_ids);
+
+  // mark whether materials have active properties
+  for (auto & mat : _all_materials.getObjects(tid))
+    mat->markActive();
+  for (auto & mat : _all_materials[Moose::FACE_MATERIAL_DATA].getObjects(tid))
+    mat->markActive();
+  for (auto & mat : _all_materials[Moose::NEIGHBOR_MATERIAL_DATA].getObjects(tid))
+    mat->markActive();
 }
 
 const std::set<unsigned int> &

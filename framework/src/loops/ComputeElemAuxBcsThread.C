@@ -110,6 +110,7 @@ ComputeElemAuxBcsThread<AuxKernelType>::operator()(const ConstBndElemRange & ran
             needed_mat_props.insert(mp_deps.begin(), mp_deps.end());
           }
           _fe_problem.setActiveMaterialProperties(needed_mat_props, _tid);
+          _fe_problem.prepareMaterials(elem->subdomain_id(), _tid);
 
           _fe_problem.reinitMaterialsFace(elem->subdomain_id(), _tid);
 

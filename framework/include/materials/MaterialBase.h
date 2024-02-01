@@ -241,6 +241,18 @@ public:
                          const std::vector<std::shared_ptr<MaterialBase>> & mats,
                          const bool allow_stateful);
 
+  /**
+   * Check and mark whether this material has any active properties
+   * Note: this function is to be called by MOOSE when preparing materials.
+   */
+  void markActive();
+
+  /**
+   * Whether or not this material has any active properties
+   * Note: this function is to be called by MOOSE on elements, sides when looping through them.
+   */
+  bool hasActiveProperties() const { return _is_active; }
+
 protected:
   /**
    * Users must override this method.
@@ -348,6 +360,8 @@ protected:
 
 private:
   const MaterialPropertyName _declare_suffix;
+  /// Whether there are any active properties
+  bool _is_active;
 };
 
 template <typename T>
