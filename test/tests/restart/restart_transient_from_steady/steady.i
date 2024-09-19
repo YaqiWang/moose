@@ -5,6 +5,11 @@
   ny = 10
 []
 
+[Problem]
+  type = CheckKernelResidualProblem
+  evaluate_residual_norm_for_kernels = diff
+[]
+
 [Variables]
   [./u]
     order = FIRST
