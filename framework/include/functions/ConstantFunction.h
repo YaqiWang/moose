@@ -29,6 +29,7 @@ public:
   virtual RealVectorValue gradient(Real t, const Point & p) const override;
 
   virtual Real timeIntegral(Real t1, Real t2, const Point & p) const override;
+  virtual bool isConstant() const override { return true; }
 
 protected:
   const Real & _value;

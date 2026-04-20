@@ -90,6 +90,10 @@ MooseParsedFunctionWrapper::evaluateDot(Real t, const Point & p)
 void
 MooseParsedFunctionWrapper::initialize()
 {
+  _is_spatially_const = true;
+  // if (_function_ptr->find_name(std::string("xyz"), _function_str) != std::string::npos)
+  //   _is_spatially_const = false;
+
   // Loop through all the input values supplied by the users.
   for (unsigned int i = 0; i < _vals_input.size(); ++i)
   {
@@ -116,6 +120,8 @@ MooseParsedFunctionWrapper::initialize()
     else if (_feproblem.hasFunction(_vals_input[i]))
     {
       Function & fn = _feproblem.getFunction(_vals_input[i], _tid);
+      if (!fn.isConstant())
+        _is_spatially_const = false;
       _initial_vals.push_back(0);
       _functions.push_back(&fn);
       _function_index.push_back(i);

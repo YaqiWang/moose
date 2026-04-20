@@ -15,11 +15,11 @@
 
 // MOOSE includes
 #include "MooseError.h"
+#include "MooseParsedFunctionWrapper.h"
 
 // Forward declarations
 class FEProblemBase;
 class InputParameters;
-class MooseParsedFunctionWrapper;
 
 /**
  * Creates the 'vars' and 'vals' parameters used by all ParsedFunctions, the
@@ -49,6 +49,8 @@ public:
    * Class destructor.
    */
   virtual ~MooseParsedFunctionBase();
+
+  bool isConstant() const { return _function_ptr->isConstant(); }
 
 protected:
   /**

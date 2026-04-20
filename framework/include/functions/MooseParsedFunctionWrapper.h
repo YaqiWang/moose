@@ -73,6 +73,8 @@ public:
    */
   Real evaluateDot(Real t, const Point & p);
 
+  bool isConstant() const { return _is_spatially_const; }
+
 private:
   /// Reference to the FEProblemBase object
   FEProblemBase & _feproblem;
@@ -115,6 +117,9 @@ private:
 
   /// The thread id passed from owning Function object
   const THREAD_ID _tid;
+
+  /// Whether this function is constant in space
+  bool _is_spatially_const;
 
   /**
    * Initialization method that prepares the _vars and _initial_vals for use

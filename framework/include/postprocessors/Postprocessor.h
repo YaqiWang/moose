@@ -71,6 +71,7 @@ public:
 
   bool supportsFaceArg() const override final { return true; }
   bool supportsElemSideQpArg() const override final { return true; }
+  bool isConstant() const override { return true; }
 
 protected:
   /// Post-processor name

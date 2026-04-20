@@ -12,7 +12,6 @@
 // MOOSE includes
 #include "InputParameters.h"
 #include "MooseError.h"
-#include "MooseParsedFunctionWrapper.h"
 
 InputParameters
 MooseParsedFunctionBase::validParams()
